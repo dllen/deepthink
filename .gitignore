@@ -2,30 +2,11 @@
 # Dependencies
 node_modules/
 
-# Build artifacts
-dist/
-build/
-*.js.map
-*.css.map
+# Editors
+.vscode/
 
 # Environment
 .env
 .env.local
 *.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Logs
-*.log
-
-# Temp files
-*.tmp
-
-# OS
-.DS_Store
-Thumbs.db
 ```

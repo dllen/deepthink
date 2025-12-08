@@ -101,3 +101,13 @@ yarn build
 ## 许可证
 
 MIT
+
+## GitHub Pages 部署
+
+此项目已配置了GitHub Actions工作流，可自动部署到GitHub Pages。当您推送到main分支时，工作流将自动运行：
+
+1. 安装Node.js依赖
+2. 构建项目
+3. 将构建结果部署到`gh-pages`分支
+
+部署的工作流配置位于 `.github/workflows/deploy.yml`。
