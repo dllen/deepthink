@@ -1,158 +1,103 @@
-# 网页内容抓取与摘要生成系统
+# SQLite Waterfall Content Viewer
 
-## 项目概述
+一个使用 React + TailwindCSS 构建的静态网站，用于离线读取 SQLite 数据并生成瀑布流内容展示，支持按标签筛选。
 
-这是一个功能完整的Python程序，用于抓取网页内容、调用大模型API生成摘要，并将结果保存到SQLite数据库中。系统支持自动抓取和手工录入两种方式。
+## 功能特点
 
-## 功能特性
+- ✅ 瀑布流布局展示内容摘要
+- ✅ 按标签筛选内容
+- ✅ 响应式设计，支持 PC 和移动端访问
+- ✅ 简洁明朗的界面风格
+- ✅ 内容卡片包含标题、时间、摘要、原文链接和标签
 
-### 1. 网页内容抓取
-- 使用Selenium模拟浏览器访问，支持JavaScript渲染的页面
-- 备用requests方法，兼容静态网页
-- 智能内容提取，优先获取文章主体内容
+## 项目结构
 
-### 2. 摘要生成
-- 支持多种大模型API（OpenAI、本地模型等）
-- 备用简单摘要算法
-- 生成100-200字的核心观点摘要
+```
+src/
+├── components/
+│   ├── ContentCard.jsx      # 内容卡片组件
+│   ├── TagFilter.jsx        # 标签筛选组件
+│   └── WaterfallGrid.jsx    # 瀑布流网格组件
+├── utils/
+│   └── sqliteReader.js      # SQLite读取工具
+├── App.jsx                  # 主应用组件
+├── main.jsx                 # 应用入口
+├── index.css               # 全局样式
+└── App.css                 # 应用样式
+```
 
-### 3. 微博内容生成
-- 自动格式化为适合微博发布的内容
-- 控制内容长度，符合平台限制
+## 技术栈
 
-### 4. 数据库管理
-- SQLite数据库存储
-- 包含标题、时间、摘要、原链接、标签等字段
-- 标签字段支持索引，便于查询
+- React 18
+- TailwindCSS
+- Vite
+- JavaScript ES6+
 
-### 5. 手工录入
-- 支持手动输入内容进行处理
-- 与自动抓取使用相同的处理流程
+## 安装和运行
 
-## 数据库表结构
-
-### content_summary 表
-- `id`: 主键，自增
-- `title`: 标题，非空
-- `created_time`: 创建时间，非空
-- `summary`: 摘要内容，非空
-- `original_url`: 原始链接，非空
-- `tags`: 标签，可为空
-- `idx_tags`: 标签索引
-
-### manual_content 表
-- `id`: 主键，自增
-- `title`: 标题，非空
-- `content`: 原始内容，非空
-- `created_time`: 创建时间，非空
-- `summary`: 摘要内容，可为空
-- `tags`: 标签，可为空
-
-## 安装依赖
-
+1. 安装依赖：
 ```bash
-pip install -r requirements.txt
+npm install
+# 或
+yarn install
 ```
 
-需要的依赖包：
-- requests
-- beautifulsoup4
-- selenium
-- openai
-- lxml
-- urllib3
-
-## 配置API密钥
-
-### OpenAI API
+2. 启动开发服务器：
 ```bash
-export OPENAI_API_KEY="your_openai_api_key"
+npm run dev
+# 或
+yarn dev
 ```
 
-### 本地模型（如Ollama）
+3. 构建生产版本：
 ```bash
-export OLLAMA_API_URL="http://localhost:11434/api/generate"
-export OLLAMA_MODEL="llama2"
+npm run build
+# 或
+yarn build
 ```
 
-## 使用方法
+## SQLite 数据读取
 
-### 1. 启动系统
-```bash
-python web_content_extractor_simple.py
-```
+本项目设计用于读取包含以下字段的 SQLite 数据库：
 
-### 2. 系统菜单
-- **1. 抓取网页内容**: 输入URL自动抓取并处理
-- **2. 手工录入内容**: 手动输入内容进行处理
-- **3. 查看数据库内容**: 显示最近的抓取记录
-- **4. 帮助信息**: 显示使用帮助
-- **5. 退出系统**: 退出程序
+- `id`: 内容唯一标识
+- `title`: 标题
+- `created_time`: 创建时间
+- `summary`: 摘要内容
+- `original_url`: 原文链接
+- `tags`: 标签（逗号分隔）
 
-### 3. 示例使用
+在浏览器环境中，实际的 SQLite 文件读取需要使用 [sql.js](https://github.com/sql-js/sql.js) 库。当前实现使用模拟数据，实际部署时需要替换为真实的 SQLite 读取逻辑。
 
-#### 抓取网页
-```
-选择 1 → 输入URL → 输入标签（可选）→ 系统自动处理
-```
+## 响应式设计
 
-#### 手工录入
-```
-选择 2 → 输入标题 → 输入内容 → 输入标签（可选）→ 系统处理
-```
+- 移动端：单列瀑布流
+- 平板端：双列瀑布流
+- 桌面端：三到四列瀑布流
 
-## 技术实现细节
+## 使用说明
 
-### 内容抓取策略
-1. 优先使用Selenium模拟浏览器访问
-2. 获取页面标题和主要内容
-3. 尝试定位article、main等语义化标签
-4. 备用方案：提取所有段落内容
+1. 启动应用后，系统会自动加载 SQLite 数据
+2. 使用顶部标签筛选器筛选内容
+3. 点击标签按钮可添加/移除筛选条件
+4. 点击"查看原文"可跳转到原始链接
+5. 悬停在卡片上可查看悬停效果
 
-### 摘要生成策略
-1. 优先调用OpenAI API
-2. 尝试本地模型API（如Ollama）
-3. 备用简单摘要算法
+## 自定义
 
-### 错误处理
-- 浏览器启动失败时使用requests备选
-- API调用失败时使用简单摘要
-- 内容抓取失败时提供错误提示
+如需集成真实的 SQLite 文件读取功能，可以：
 
-## 文件结构
+1. 安装 sql.js: `npm install sql.js`
+2. 在 `src/utils/sqliteReader.js` 中实现真实的 SQLite 读取逻辑
+3. 添加文件上传功能供用户上传 SQLite 文件
 
-```
-/workspace/
-├── web_content_extractor_simple.py    # 主程序文件
-├── requirements.txt                   # 依赖包列表
-├── test_system.py                     # 功能测试脚本
-├── web_content.db                     # 生成的数据库文件（运行后创建）
-└── README.md                          # 本说明文档
-```
+## 浏览器兼容性
 
-## 环境要求
-
-- Python 3.8+
-- Chrome浏览器（可选，用于Selenium）
-- ChromeDriver（可选，用于Selenium）
-
-## 扩展功能
-
-系统设计具有良好的扩展性，可以轻松添加：
-
-1. 更多API支持（DeepSeek、通义千问等）
-2. 更多内容抓取方法
-3. 不同的摘要生成策略
-4. 导出功能
-5. 定时任务功能
-
-## 注意事项
-
-1. 首次运行会自动创建数据库文件
-2. API密钥需要自行配置
-3. 某些网站可能有反爬虫机制
-4. 本地模型需要单独部署（如Ollama）
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
 
 ## 许可证
 
-本项目为示例代码，可根据需要自由使用和修改。
+MIT

@@ -1,28 +1,31 @@
 ```
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Dependencies
+node_modules/
 
-# Database
-web_content.db
+# Build artifacts
+dist/
+build/
+*.js.map
+*.css.map
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Dependencies
-venv/
-.venv/
-pip-log.txt
-pipenv.lock
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Logs
 *.log
 
-# OS generated files
+# Temp files
+*.tmp
+
+# OS
 .DS_Store
 Thumbs.db
 ```
