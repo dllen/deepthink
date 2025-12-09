@@ -38,10 +38,15 @@ class BaseLLMClient(ABC):
         """
         truncated_content = content[:max_content_length]
         
-        return f"""请为以下文章生成一个简洁准确的摘要，字数在100-200字之间：
+        return f"""请作为一个专业的分析助手，为以下文章生成一份简明扼要的摘要。
+
+核心要求：
+1. 精准提取内容中的关键信息和核心论据
+2. 确保摘要逻辑严密，符合普世认知的逻辑推演
+3. 严格尊重常识，基于原文事实，不夸大不歪曲
 
 文章标题: {title}
 
 文章内容: {truncated_content}
 
-请生成摘要:"""
+请生成100-200字的摘要:"""
