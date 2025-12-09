@@ -12,17 +12,18 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@heroicons/react": "^2.0.18",
+    "fuse.js": "^7.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "sqlite-parser": "^1.0.1",
     "sql.js": "^1.8.0",
-    "@heroicons/react": "^2.0.18"
+    "sqlite-parser": "^1.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",
-    "vite": "^4.4.0",
-    "tailwindcss": "^3.3.0",
     "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.24"
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.0",
+    "vite": "^4.4.0"
   }
 }
