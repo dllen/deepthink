@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react';
 import './App.css';
-import FileUpload from './components/FileUpload';
 import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import SQLiteReader from './utils/sqliteReader';
@@ -98,47 +97,18 @@ const App = () => {
     setSelectedTags([]);
   };
 
-  // 处理文件上传
-  const handleFileUpload = async (file) => {
-    setIsLoading(true);
-    try {
-      // 在实际实现中，这里会使用sql.js来读取SQLite文件
-      // 由于在浏览器环境中无法直接操作，我们模拟读取过程
-      console.log('Processing file:', file.name);
-      
-      // 使用模拟数据进行演示
-      const reader = new SQLiteReader();
-      const data = await reader.readData();
-      const extractedTags = reader.extractTags(data);
-      
-      setData(data);
-      setFilteredData(data);
-      setTags(extractedTags);
-    } catch (error) {
-      console.error('Error processing SQLite file:', error);
-      // 即使出错也使用模拟数据，实际部署时应处理错误
-      const reader = new SQLiteReader();
-      const data = await reader.readData();
-      const extractedTags = reader.extractTags(data);
-      
-      setData(data);
-      setFilteredData(data);
-      setTags(extractedTags);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* 头部 */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-indigo-100 shadow-sm py-4 px-6 transition-all duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-sky-500">
-              DeepThink 瀑布流
+              观念棱镜
             </h1>
-            <p className="text-slate-500 text-xs mt-1">智能内容摘要检索系统</p>
+            <p className="text-slate-500 text-xs mt-1">深度思考 • 智慧洞见</p>
           </div>
           <div className="hidden sm:block text-sm text-slate-400">
             {filteredData.length} 条内容
@@ -146,11 +116,7 @@ const App = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 文件上传区域 */}
-        <div className="mb-8 transform hover:scale-[1.01] transition-transform duration-300">
-          <FileUpload onFileUpload={handleFileUpload} />
-        </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         
         {/* 标签筛选器 */}
         <div className="mb-8 sticky top-24 z-40">
@@ -198,7 +164,8 @@ const App = () => {
       <footer className="bg-white border-t border-slate-100 mt-12 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-slate-400 text-sm">
-            SQLite Waterfall Content Viewer © {new Date().getFullYear()} • Powered by DeepThink
+          <p className="text-slate-400 text-sm">
+            观念棱镜 © {new Date().getFullYear()} • Powered by DeepThink
           </p>
         </div>
       </footer>
