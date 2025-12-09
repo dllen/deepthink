@@ -1,6 +1,8 @@
 
-import { useEffect, useState } from 'react';
+import Fuse from 'fuse.js';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
+import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import SQLiteReader from './utils/sqliteReader';
@@ -13,6 +15,7 @@ const App = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load static data on mount
@@ -65,23 +68,41 @@ const App = () => {
 
   };
 
-  // 筛选数据
-  const filterDataByTags = () => {
-    if (selectedTags.length === 0) {
-      setFilteredData(data);
-    } else {
-      const filtered = data.filter(item => {
+  // Configure Fuse.js for fuzzy search
+  const fuse = useMemo(() => {
+    return new Fuse(data, {
+      keys: ['title', 'content', 'summary'],
+      threshold: 0.3,
+      ignoreLocation: true,
+      useExtendedSearch: true,
+    });
+  }, [data]);
+
+  // Combined filtering: search + tags
+  const filterData = () => {
+    let result = data;
+
+    // Apply search filter first
+    if (searchQuery.trim()) {
+      const searchResults = fuse.search(searchQuery);
+      result = searchResults.map(r => r.item);
+    }
+
+    // Then apply tag filter
+    if (selectedTags.length > 0) {
+      result = result.filter(item => {
         const itemTags = item.tags.split(',').map(tag => tag.trim());
         return selectedTags.some(tag => itemTags.includes(tag));
       });
-      setFilteredData(filtered);
     }
+
+    setFilteredData(result);
   };
 
-  // 当选中的标签改变时，重新过滤数据
+  // Re-filter when search query or selected tags change
   useEffect(() => {
-    filterDataByTags();
-  }, [selectedTags]);
+    filterData();
+  }, [searchQuery, selectedTags, data]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
@@ -95,6 +116,15 @@ const App = () => {
   // 清除所有标签筛选
   const clearFilters = () => {
     setSelectedTags([]);
+  };
+
+  // Search handlers
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
   };
 
 
@@ -118,6 +148,15 @@ const App = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         
+        {/* 搜索栏 */}
+        <div className="mb-6">
+          <SearchBar 
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            onClearSearch={handleClearSearch}
+          />
+        </div>
+
         {/* 标签筛选器 */}
         <div className="mb-8 sticky top-24 z-40">
           <TagFilter 
@@ -163,7 +202,6 @@ const App = () => {
 
       <footer className="bg-white border-t border-slate-100 mt-12 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-slate-400 text-sm">
           <p className="text-slate-400 text-sm">
             观念棱镜 © {new Date().getFullYear()} • Powered by DeepThink
           </p>
