@@ -5,6 +5,10 @@ Configuration management for the web content extraction system.
 import os
 from dataclasses import dataclass
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 @dataclass
@@ -15,6 +19,11 @@ class APIConfig:
     openai_api_key: Optional[str] = None
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-3.5-turbo"
+
+    # DeepSeek Configuration
+    deepseek_api_key: Optional[str] = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"
     
     # Local Model Configuration (Ollama)
     ollama_api_url: str = "http://localhost:11434/api/generate"
@@ -32,6 +41,9 @@ class APIConfig:
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             openai_base_url=os.getenv("OPENAI_BASE_URL", cls.openai_base_url),
             openai_model=os.getenv("OPENAI_MODEL", cls.openai_model),
+            deepseek_api_key=os.getenv("DEEPSEEK_API_KEY"),
+            deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", cls.deepseek_base_url),
+            deepseek_model=os.getenv("DEEPSEEK_MODEL", cls.deepseek_model),
             ollama_api_url=os.getenv("OLLAMA_API_URL", cls.ollama_api_url),
             ollama_model=os.getenv("OLLAMA_MODEL", cls.ollama_model),
         )

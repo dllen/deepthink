@@ -7,6 +7,7 @@ from typing import List, Optional
 from ..llm_clients import (
     BaseLLMClient,
     OpenAIClient,
+    DeepSeekClient,
     LocalModelClient,
     FallbackSummarizer
 )
@@ -29,6 +30,10 @@ class ContentProcessor:
     
     def _setup_clients(self):
         """Setup LLM clients in priority order."""
+        # Add DeepSeek client if API key is available
+        if self.config.deepseek_api_key:
+            self.llm_clients.append(DeepSeekClient(self.config))
+
         # Add OpenAI client if API key is available
         if self.config.openai_api_key:
             self.llm_clients.append(OpenAIClient(self.config))
