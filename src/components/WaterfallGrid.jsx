@@ -1,11 +1,12 @@
-import React from 'react';
 import ContentCard from './ContentCard';
 
 const WaterfallGrid = ({ data }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6 px-2">
       {data.map((item) => (
-        <ContentCard key={item.id} item={item} />
+        <div key={item.id} className="break-inside-avoid">
+          <ContentCard item={item} />
+        </div>
       ))}
     </div>
   );
