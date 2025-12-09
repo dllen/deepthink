@@ -4,6 +4,7 @@ Main CLI entry point for web content extraction system.
 """
 
 import sys
+
 from web_content_system import WebContentExtractor
 
 
@@ -15,8 +16,8 @@ def print_menu():
     print("2. ✍️  手工录入内容")
     print("3. 📖 查看数据库内容")
     print("4. ❓ 帮助信息")
-    print("5. 🚪 退出系统")
-    print("6. 🚀 批量抓取 (grab_params.json)")
+    print("5. 🚀 批量抓取 (grab_params.json)")
+    print("6. 🚪 退出系统")
 
 def process_batch_scraping(extractor):
     """Process batch scraping from grab_params.json."""
@@ -104,7 +105,7 @@ def main():
     try:
         while True:
             print_menu()
-            choice = input("\n请输入选择 (1-5): ").strip()
+            choice = input("\n请输入选择 (1-6): ").strip()
             
             if choice == "1":
                 url = input("\n🔗 请输入网页URL: ").strip()
@@ -136,11 +137,11 @@ def main():
                 print_help()
             
             elif choice == "5":
-                print("\n👋 感谢使用，再见！")
-                break
+                process_batch_scraping(extractor)
             
             elif choice == "6":
-                process_batch_scraping(extractor)
+                print("\n👋 感谢使用，再见！")
+                break
             
             else:
                 print("\n❌ 无效选择，请重新输入")
