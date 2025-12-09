@@ -7,10 +7,10 @@ import sys
 from datetime import datetime
 
 # 将当前目录添加到路径
-sys.path.append('/workspace')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 导入我们创建的模块
-from web_content_extractor_simple import WebContentExtractor
+from web_content_system import WebContentExtractor
 
 def test_basic_functionality():
     """测试基本功能"""

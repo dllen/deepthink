@@ -1,0 +1,13 @@
+# Web Content Extraction System - Requirements
+
+# Core dependencies
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+selenium>=4.15.0
+openai>=1.3.0
+
+# Database
+# sqlite3 is included in Python standard library
+
+# Optional dependencies
+# dashscope  # For Qwen API support (uncomment if needed)
