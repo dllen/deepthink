@@ -6,14 +6,19 @@ This project uses an encrypted SQLite database to store web content. To work wit
 
 ### Local Development Setup
 
-1.  **Set the Environment Variable**:
-    You need to set the `SQLITE_KEY` environment variable in your terminal. This key is used to encrypt and decrypt the `python_scripts/web_content.db` file.
+    1.  **Copy the example file**:
+        ```bash
+        cp .env.example .env
+        ```
 
-    ```bash
-    export SQLITE_KEY="your_secret_password_here"
-    ```
-
-    *Tip: Add this line to your shell profile (`.zshrc` or `.bashrc`) to make it permanent.*
+    2.  **Edit `.env` file**:
+        Open `.env` and fill in your keys:
+        ```ini
+        SQLITE_KEY=your_secret_password_here
+        DEEPSEEK_API_KEY=your_deepseek_api_key
+        ```
+    
+    *Note: The `.env` file is ignored by git, so your secrets remain safe locally.*
 
 2.  **Encrypting the Database**:
     Before committing changes to the database, run the helper script to encrypt it:
