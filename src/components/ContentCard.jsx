@@ -32,11 +32,11 @@ const ContentCard = ({ item }) => {
           </a>
         </div>
         
-        <h3 className="text-lg font-bold text-slate-800 mb-3 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">
+        <h3 className="text-lg font-bold text-slate-800 mb-3 leading-snug group-hover:text-indigo-600 transition-colors break-words">
           {item.title}
         </h3>
         
-        <p className="text-slate-600 text-sm mb-5 flex-grow line-clamp-4 leading-relaxed">
+        <p className="text-slate-600 text-sm mb-5 flex-grow leading-relaxed whitespace-pre-wrap break-words">
           {item.summary}
         </p>
         
