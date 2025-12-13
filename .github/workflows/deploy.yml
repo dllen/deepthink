@@ -32,7 +32,7 @@ jobs:
 
     - name: Verify static data non-empty
       run: |
-        node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('src/assets/static-data.js','utf8')); if(!Array.isArray(d)||d.length===0){console.error('Static data empty – check SQLITE_KEY and web_content.db.enc'); process.exit(1)} else {console.log('Static data count', d.length)}"
+        node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('src/assets/static-data.json','utf8')); if(!Array.isArray(d)||d.length===0){console.error('Static data empty – check SQLITE_KEY and web_content.db.enc'); process.exit(1)} else {console.log('Static data count', d.length)}"
 
     - name: Build project
       run: npm run build
