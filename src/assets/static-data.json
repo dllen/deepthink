@@ -9,7 +9,7 @@
   },
   {
     "id": 16,
-    "title": "OpenRouter与a16z发布百兆级",
+    "title": "OpenRouter与a16z于2025年12月发布了一份基于100万亿真实Token使用数据的报告",
     "created_time": "2025-12-13 21:43:54",
     "summary": "OpenRouter与a16z于2025年12月发布了一份基于100万亿真实Token使用数据的报告，揭示了AI应用的核心转变。报告指出，AI使用已从“语言生成”进入“推理与行动”时代，超过50%的调用通过具备内部思考能力的推理模型完成。开源模型使用量显著增长至近30%，其中中国模型表现突出，市场形成闭源（高稳定）与开源（高灵活）并存的“双轨结构”。中型模型因性价比成为主流。实际应用中，编程任务占比超50%，成为核心场景；同时，角色扮演等创意应用也占据重要比例，显示AI兼具生产力与情感表达的双重角色。",
     "original_url": "https://mp.weixin.qq.com/s/pfocdR00FrLXc-yGDrtg2Q",
@@ -38,21 +38,5 @@
     "summary": "本文基于英伟达2026财年第三季度财报分析，指出其光鲜业绩下暗藏风险与AI联盟裂痕。财报显示数据中心业务占比近90%，营收增长62%，但存在三大隐忧：经营现金流与净利润存在80亿美元缺口；库存翻倍至198亿美元，资本压力增大；应收账款周期延长至53天，或为维持销售而向大客户提供宽松信贷。同时，文章提及市场对“循环融资”的质疑，并指出OpenAI等主要客户正积极行动以减少对英伟达的依赖，暗示AI产业链内部的竞争关系正在加剧。",
     "original_url": "https://philippeoger.com/pages/deep-dive-into-nvidias-virtuous-cycle",
     "tags": "NVIDIA"
-  },
-  {
-    "id": 23,
-    "title": "新标题-应覆盖",
-    "created_time": "2025-12-13 21:42:23",
-    "summary": "第二次摘要",
-    "original_url": "https://example.com/update-title",
-    "tags": "Tag"
-  },
-  {
-    "id": 12,
-    "title": "Test Title",
-    "created_time": "2025-12-13 20:48:29",
-    "summary": "Test Summary",
-    "original_url": "https://example.com/path",
-    "tags": "Test"
   }
 ]

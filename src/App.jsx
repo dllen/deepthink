@@ -6,7 +6,7 @@ import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import SQLiteReader from './utils/sqliteReader';
-import data from './assets/static-data.js';
+import staticData from './assets/static-data.json';
 
 const App = () => {
   const [items, setItems] = useState([]);
@@ -19,11 +19,11 @@ const App = () => {
   useEffect(() => {
     const loadStaticData = async () => {
       try {
-        if (data && data.length > 0) {
+        if (staticData && staticData.length > 0) {
           const reader = new SQLiteReader();
-          const extractedTags = reader.extractTags(data);
-          setItems(data);
-          setFilteredData(data);
+          const extractedTags = reader.extractTags(staticData);
+          setItems(staticData);
+          setFilteredData(staticData);
           setTags(extractedTags);
           setIsLoading(false);
           return;
