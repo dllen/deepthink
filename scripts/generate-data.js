@@ -3,11 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
+import JavaScriptObfuscator from 'javascript-obfuscator';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DB_PATH = path.resolve(__dirname, '../python_scripts/web_content.db');
 const OUTPUT_PATH = path.resolve(__dirname, '../src/assets/static-data.json');
+const OUTPUT_JS_PATH = path.resolve(__dirname, '../src/assets/static-data.js');
 
 async function generateData() {
   console.log('📦 Starting static data generation...');
@@ -93,6 +95,19 @@ async function generateData() {
     // Write data
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(result, null, 2));
     console.log(`🎉 Static data generated at: ${OUTPUT_PATH}`);
+    
+    const jsModule = `export default ${JSON.stringify(result)};`;
+    const obfuscated = JavaScriptObfuscator.obfuscate(jsModule, {
+      compact: true,
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.75,
+      deadCodeInjection: false,
+      stringArray: true,
+      stringArrayThreshold: 1,
+      renameGlobals: false,
+    });
+    fs.writeFileSync(OUTPUT_JS_PATH, obfuscated.getObfuscatedCode());
+    console.log(`🔐 Obfuscated JS generated at: ${OUTPUT_JS_PATH}`);
 
   } catch (error) {
     console.error('❌ Error generating data:', error);

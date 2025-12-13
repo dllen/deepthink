@@ -6,58 +6,45 @@ import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import SQLiteReader from './utils/sqliteReader';
-
-// Try to use static data
-import staticDataRaw from './assets/static-data.json?url';
+import data from './assets/static-data.js';
 
 const App = () => {
-  const [data, setData] = useState([]);
+  const [items, setItems] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load static data on mount
   useEffect(() => {
     const loadStaticData = async () => {
       try {
-        // Fetch the static data file
-        const response = await fetch(staticDataRaw);
-        if (response.ok) {
-           const jsonData = await response.json();
-           if (jsonData && jsonData.length > 0) {
-             const reader = new SQLiteReader();
-             const extractedTags = reader.extractTags(jsonData);
-             setData(jsonData);
-             setFilteredData(jsonData);
-             setTags(extractedTags);
-             setIsLoading(false);
-             return;
-           }
+        if (data && data.length > 0) {
+          const reader = new SQLiteReader();
+          const extractedTags = reader.extractTags(data);
+          setItems(data);
+          setFilteredData(data);
+          setTags(extractedTags);
+          setIsLoading(false);
+          return;
         }
-        // Fallback to initial load logic if fetch fails or data is empty
         readSQLiteData();
       } catch (e) {
-        console.warn('Failed to load static data, falling back:', e);
-        readSQLiteData(); // Fallback to reading simulated data
+        readSQLiteData();
       }
     };
     
     loadStaticData();
   }, []);
 
-  // 从SQLite文件读取数据的函数
   const readSQLiteData = async () => {
     try {
       const reader = new SQLiteReader();
-      // 实际使用时，这里会从用户上传的SQLite文件中读取数据
-      // const data = await reader.readData('path/to/file.sqlite');
-      const data = await reader.readData(); // 使用模拟数据
+      const data = await reader.readData();
       
       const tags = reader.extractTags(data);
 
-      setData(data);
+      setItems(data);
       setFilteredData(data);
       setTags(tags);
       setIsLoading(false);
@@ -68,27 +55,23 @@ const App = () => {
 
   };
 
-  // Configure Fuse.js for fuzzy search
   const fuse = useMemo(() => {
-    return new Fuse(data, {
+    return new Fuse(items, {
       keys: ['title', 'content', 'summary'],
       threshold: 0.3,
       ignoreLocation: true,
       useExtendedSearch: true,
     });
-  }, [data]);
+  }, [items]);
 
-  // Combined filtering: search + tags
   const filterData = () => {
-    let result = data;
+    let result = items;
 
-    // Apply search filter first
     if (searchQuery.trim()) {
       const searchResults = fuse.search(searchQuery);
       result = searchResults.map(r => r.item);
     }
 
-    // Then apply tag filter
     if (selectedTags.length > 0) {
       result = result.filter(item => {
         const itemTags = item.tags.split(',').map(tag => tag.trim());
