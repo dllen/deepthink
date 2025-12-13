@@ -71,3 +71,4 @@ htmlcov/
 
 # Data files
 static-data.json
+src/assets/static-data.json

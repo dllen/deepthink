@@ -1,7 +1,4 @@
-"""
-Database manager for SQLite operations.
-"""
-
+import hashlib
 import sqlite3
 from datetime import datetime
 from typing import List, Tuple
@@ -27,10 +24,10 @@ class DatabaseManager:
         self._create_tables()
     
     def _create_tables(self):
-        """Create necessary database tables."""
+        """Create or migrate necessary database tables."""
         cursor = self.conn.cursor()
         
-        # Create content_summary table
+        # Ensure table exists with baseline columns
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS content_summary (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,10 +39,44 @@ class DatabaseManager:
             )
         ''')
         
+        # Migrate: add uid column if missing
+        cursor.execute("PRAGMA table_info(content_summary)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "uid" not in columns:
+            cursor.execute("ALTER TABLE content_summary ADD COLUMN uid TEXT")
+        
+        # Create unique index on uid
+        cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_uid ON content_summary (uid)')
+        
         # Create index on tags
-        cursor.execute(
-            'CREATE INDEX IF NOT EXISTS idx_tags ON content_summary (tags)'
-        )
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_tags ON content_summary (tags)')
+        
+        # Backfill uid for existing rows where missing
+        cursor.execute("SELECT id, original_url FROM content_summary WHERE uid IS NULL OR uid = ''")
+        rows = cursor.fetchall()
+        for rid, orig_url in rows:
+            if orig_url:
+                uid = hashlib.md5(orig_url.encode('utf-8')).hexdigest()
+                cursor.execute("UPDATE content_summary SET uid = ? WHERE id = ?", (uid, rid))
+        
+        # Deduplicate by uid keeping the latest id
+        cursor.execute("""
+            SELECT uid, MAX(id) AS keep_id
+            FROM content_summary
+            WHERE uid IS NOT NULL AND uid <> ''
+            GROUP BY uid
+        """)
+        keep_map = {row[0]: row[1] for row in cursor.fetchall()}
+        cursor.execute("""
+            SELECT id, uid FROM content_summary
+            WHERE uid IS NOT NULL AND uid <> ''
+        """)
+        to_delete = []
+        for rid, uid in cursor.fetchall():
+            if uid in keep_map and rid != keep_map[uid]:
+                to_delete.append(rid)
+        if to_delete:
+            cursor.executemany("DELETE FROM content_summary WHERE id = ?", [(rid,) for rid in to_delete])
         
         # Create manual_content table
         cursor.execute('''
@@ -69,7 +100,7 @@ class DatabaseManager:
         tags: str = ""
     ) -> int:
         """
-        Save content summary to database.
+        Save content summary to database with upsert on uid (md5 of URL).
         
         Args:
             title: Content title
@@ -83,13 +114,25 @@ class DatabaseManager:
         cursor = self.conn.cursor()
         created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
+        uid = hashlib.md5((url or "").encode('utf-8')).hexdigest()
+        
         cursor.execute('''
-            INSERT INTO content_summary (title, created_time, summary, original_url, tags)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (title, created_time, summary, url, tags))
+            INSERT INTO content_summary (uid, title, created_time, summary, original_url, tags)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(uid) DO UPDATE SET
+              title=excluded.title,
+              created_time=excluded.created_time,
+              summary=excluded.summary,
+              original_url=excluded.original_url,
+              tags=excluded.tags
+        ''', (uid, title, created_time, summary, url, tags))
         
         self.conn.commit()
-        return cursor.lastrowid
+        
+        # Return the id of the affected row
+        cursor.execute("SELECT id FROM content_summary WHERE uid = ?", (uid,))
+        row = cursor.fetchone()
+        return row[0] if row else cursor.lastrowid
     
     def save_manual_content(
         self,
