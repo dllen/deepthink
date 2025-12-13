@@ -24,9 +24,6 @@ dist/
 build/
 target/
 .gradle/
-package-lock.json
-npm-shrinkwrap.json
-yarn.lock
 
 # System files
 .DS_Store
