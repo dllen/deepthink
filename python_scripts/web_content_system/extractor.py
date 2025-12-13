@@ -45,19 +45,16 @@ class WebContentExtractor:
         """
         print(f"🔍 开始抓取: {url}")
         
-        # Try browser scraping first
         title, content = self.browser_scraper.scrape(url)
         
-        # Fallback to requests if browser fails
         if not content or not self.processor.validate_content(content):
-            print("⚠️  浏览器抓取失败，尝试使用requests...")
             title, content = self.requests_scraper.scrape(url)
         
-        # Check if we got valid content
         if not self.processor.validate_content(content):
             print("❌ 无法抓取到有效内容")
             return False
         
+        title = self.processor.generate_title(content)
         print(f"✅ 抓取成功 - 标题: {title[:50]}{'...' if len(title) > 50 else ''}")
         print(f"📊 内容长度: {len(content)} 字符")
         
@@ -87,6 +84,7 @@ class WebContentExtractor:
         Returns:
             Generated summary
         """
+        title = self.processor.generate_title(content)
         print("⏳ 正在生成摘要...")
         summary = self.processor.generate_summary(content, title)
         

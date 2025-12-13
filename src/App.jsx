@@ -85,7 +85,7 @@ const App = () => {
   // Re-filter when search query or selected tags change
   useEffect(() => {
     filterData();
-  }, [searchQuery, selectedTags, data]);
+  }, [searchQuery, selectedTags, items]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
