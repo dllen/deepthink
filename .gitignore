@@ -69,8 +69,5 @@ htmlcov/
 *.tar.xz
 *.tar.zst
 
-# Database
-python_scripts/web_content.db
-
 # Data files
 static-data.json
