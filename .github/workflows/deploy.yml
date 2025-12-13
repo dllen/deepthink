@@ -26,8 +26,13 @@ jobs:
     - name: Decrypt Database
       run: |
         openssl aes-256-cbc -d -pbkdf2 -in python_scripts/web_content.db.enc -out python_scripts/web_content.db -k "${{ secrets.SQLITE_KEY }}"
-      # Continue even if decryption fails (e.g., file not found), generating empty data instead
-      continue-on-error: true
+
+    - name: Generate static data
+      run: node scripts/generate-data.js
+
+    - name: Verify static data non-empty
+      run: |
+        node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('src/assets/static-data.json','utf8')); if(!Array.isArray(d)||d.length===0){console.error('Static data empty – check SQLITE_KEY and web_content.db.enc'); process.exit(1)} else {console.log('Static data count', d.length)}"
 
     - name: Build project
       run: npm run build
