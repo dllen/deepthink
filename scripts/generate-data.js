@@ -16,10 +16,7 @@ async function generateData() {
   console.log(`📂 Database path: ${DB_PATH}`);
 
   if (!fs.existsSync(DB_PATH)) {
-    console.warn('⚠️  Database file not found at expected path. Skipping data generation.');
-    // Write empty array to ensure file exists
-    fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify([]));
+    console.warn('⚠️  Database file not found. Skipping data generation and preserving existing static data.');
     return;
   }
 
