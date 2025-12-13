@@ -11,12 +11,57 @@ const DB_PATH = path.resolve(__dirname, '../python_scripts/web_content.db');
 const OUTPUT_PATH = path.resolve(__dirname, '../src/assets/static-data.json');
 const OUTPUT_JS_PATH = path.resolve(__dirname, '../src/assets/static-data.js');
 
+const args = process.argv.slice(2);
+const FROM_JSON = args.includes('--from-json');
+
+function writeJsModule(result) {
+  const jsModule = `export default ${JSON.stringify(result)};`;
+  const obfuscated = JavaScriptObfuscator.obfuscate(jsModule, {
+    compact: true,
+    controlFlowFlattening: true,
+    controlFlowFlatteningThreshold: 0.75,
+    deadCodeInjection: false,
+    stringArray: true,
+    stringArrayThreshold: 1,
+    renameGlobals: false,
+  });
+  fs.writeFileSync(OUTPUT_JS_PATH, obfuscated.getObfuscatedCode());
+  console.log(`🔐 Obfuscated JS generated at: ${OUTPUT_JS_PATH}`);
+}
+
+async function generateFromJson() {
+  console.log('📦 Generating static-data.js from existing static-data.json...');
+  if (!fs.existsSync(OUTPUT_PATH)) {
+    console.error(`❌ ${OUTPUT_PATH} not found. Aborting JSON→JS generation.`);
+    process.exit(1);
+  }
+  const raw = fs.readFileSync(OUTPUT_PATH, 'utf-8');
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    console.error('❌ Failed to parse static-data.json:', e);
+    process.exit(1);
+  }
+  writeJsModule(data);
+}
+
 async function generateData() {
   console.log('📦 Starting static data generation...');
   console.log(`📂 Database path: ${DB_PATH}`);
 
+  if (FROM_JSON) {
+    await generateFromJson();
+    return;
+  }
+
   if (!fs.existsSync(DB_PATH)) {
-    console.warn('⚠️  Database file not found. Skipping data generation and preserving existing static data.');
+    console.warn('⚠️  Database file not found. Falling back to JSON→JS generation if available.');
+    if (fs.existsSync(OUTPUT_PATH)) {
+      await generateFromJson();
+    } else {
+      console.warn('ℹ️  No static-data.json found. Preserving existing static-data.js.');
+    }
     return;
   }
 
@@ -93,18 +138,7 @@ async function generateData() {
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(result, null, 2));
     console.log(`🎉 Static data generated at: ${OUTPUT_PATH}`);
     
-    const jsModule = `export default ${JSON.stringify(result)};`;
-    const obfuscated = JavaScriptObfuscator.obfuscate(jsModule, {
-      compact: true,
-      controlFlowFlattening: true,
-      controlFlowFlatteningThreshold: 0.75,
-      deadCodeInjection: false,
-      stringArray: true,
-      stringArrayThreshold: 1,
-      renameGlobals: false,
-    });
-    fs.writeFileSync(OUTPUT_JS_PATH, obfuscated.getObfuscatedCode());
-    console.log(`🔐 Obfuscated JS generated at: ${OUTPUT_JS_PATH}`);
+    writeJsModule(result);
 
   } catch (error) {
     console.error('❌ Error generating data:', error);
