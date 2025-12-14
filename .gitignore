@@ -68,3 +68,6 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+ 
+# Generated assets
+src/assets/static-data*.json

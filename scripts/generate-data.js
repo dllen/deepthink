@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.resolve(__dirname, '../python_scripts/web_content.db');
 const OUTPUT_PATH = path.resolve(__dirname, '../src/assets/static-data.json');
 const OUTPUT_JS_PATH = path.resolve(__dirname, '../src/assets/static-data.js');
+const OUTPUT_DIR = path.dirname(OUTPUT_PATH);
 
 const args = process.argv.slice(2);
 const FROM_JSON = args.includes('--from-json');
@@ -44,6 +45,33 @@ async function generateFromJson() {
     process.exit(1);
   }
   writeJsModule(data);
+}
+
+function formatTs(d) {
+  const pad = n => String(n).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+  return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`;
+}
+
+function mergeIncremental(existing, incoming) {
+  const keyOf = item => item.original_url || `${item.title}-${item.created_time}`;
+  const map = new Map(existing.map(x => [keyOf(x), x]));
+  let added = 0;
+  for (const it of incoming) {
+    const k = keyOf(it);
+    if (!map.has(k)) {
+      existing.push(it);
+      map.set(k, it);
+      added++;
+    }
+  }
+  existing.sort((a, b) => String(b.created_time).localeCompare(String(a.created_time)));
+  return { merged: existing, added };
 }
 
 async function generateData() {
@@ -131,14 +159,17 @@ async function generateData() {
 
     db.close();
 
-    // Ensure output directory exists
-    fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-    
-    // Write data
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(result, null, 2));
-    console.log(`🎉 Static data generated at: ${OUTPUT_PATH}`);
-    
-    writeJsModule(result);
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    const existing = fs.existsSync(OUTPUT_PATH) ? JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf-8')) : [];
+    const { merged, added } = mergeIncremental(existing, result);
+    const ts = formatTs(new Date());
+    const snapshotPath = path.resolve(OUTPUT_DIR, `static-data-${ts}.json`);
+    fs.writeFileSync(snapshotPath, JSON.stringify(merged, null, 2));
+    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(merged, null, 2));
+    console.log(`➕ Incremental merge complete. Added ${added} new records.`);
+    console.log(`🗂 Snapshot written: ${snapshotPath}`);
+    console.log(`🎉 Latest data written: ${OUTPUT_PATH}`);
+    writeJsModule(merged);
 
   } catch (error) {
     console.error('❌ Error generating data:', error);
