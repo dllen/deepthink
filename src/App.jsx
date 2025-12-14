@@ -7,6 +7,7 @@ import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import SQLiteReader from './utils/sqliteReader';
 import data from './assets/static-data.js';
+import logo from './assets/logo.svg';
 
 const App = () => {
   const [items, setItems] = useState([]);
@@ -117,7 +118,8 @@ const App = () => {
       {/* 头部 */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-indigo-100 shadow-sm py-4 px-6 transition-all duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="DeepThink Logo" className="h-10 w-10 rounded-lg ring-1 ring-indigo-200 bg-white/70 p-1.5" />
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-sky-500">
               观念棱镜
             </h1>
