@@ -1,52 +1,57 @@
 [
-  {
-    "url": "https://philippeoger.com/pages/deep-dive-into-nvidias-virtuous-cycle",
-    "tags": "NVIDIA",
-    "done": true
-  },
-  {
-    "url": "https://principles-wiki.net/principles:gall_s_law",
-    "tags": "Principles",
-    "done": true
-  },
-  {
-    "url": "https://mp.weixin.qq.com/s/iWVGV4UxtEox3vGdnUeqrg",
-    "tags": "AI",
-    "done": true
-  },
-  {
-    "url": "https://mp.weixin.qq.com/s/pfocdR00FrLXc-yGDrtg2Q",
-    "tags": "AI",
-    "done": true
-  },
-  {
-    "url": "https://mp.weixin.qq.com/s/H-UujFAfSLX4PAiWz4-GFg",
-    "tags": "AI",
-    "done": true
-  },
-  {
-    "url": "https://mp.weixin.qq.com/s/cawlqozNm4yXj1nCRy7Cjw",
-    "tags": "投资",
-    "done": true
-  },
-  {
-    "url": "https://mp.weixin.qq.com/s/Qwo9mBRue9-W7jsgwD3ztQ",
-    "tags": "悟道",
-    "done": true
-  },
-  {
-    "url": "https://finance.sina.com.cn/hy/hyjz/2025-12-05/doc-infztptz9571666.shtml",
-    "tags": "访谈",
-    "done": true
-  },
-  {
-    "url": "https://xueqiu.com/4855909358/361171647",
-    "tags": "访谈",
-    "done": true
-  },
-  {
-    "url": "https://wallstreetcn.com/articles/3761015",
-    "tags": "访谈",
-    "done": true
-  }
+    {
+        "url": "https://philippeoger.com/pages/deep-dive-into-nvidias-virtuous-cycle",
+        "tags": "NVIDIA",
+        "done": true
+    },
+    {
+        "url": "https://principles-wiki.net/principles:gall_s_law",
+        "tags": "Principles",
+        "done": true
+    },
+    {
+        "url": "https://mp.weixin.qq.com/s/iWVGV4UxtEox3vGdnUeqrg",
+        "tags": "AI",
+        "done": true
+    },
+    {
+        "url": "https://mp.weixin.qq.com/s/pfocdR00FrLXc-yGDrtg2Q",
+        "tags": "AI",
+        "done": true
+    },
+    {
+        "url": "https://mp.weixin.qq.com/s/H-UujFAfSLX4PAiWz4-GFg",
+        "tags": "AI",
+        "done": true
+    },
+    {
+        "url": "https://mp.weixin.qq.com/s/cawlqozNm4yXj1nCRy7Cjw",
+        "tags": "投资",
+        "done": true
+    },
+    {
+        "url": "https://mp.weixin.qq.com/s/Qwo9mBRue9-W7jsgwD3ztQ",
+        "tags": "悟道",
+        "done": true
+    },
+    {
+        "url": "https://finance.sina.com.cn/hy/hyjz/2025-12-05/doc-infztptz9571666.shtml",
+        "tags": "访谈",
+        "done": true
+    },
+    {
+        "url": "https://xueqiu.com/4855909358/361171647",
+        "tags": "访谈",
+        "done": false
+    },
+    {
+        "url": "https://wallstreetcn.com/articles/3761015",
+        "tags": "访谈",
+        "done": false
+    },
+    {
+        "url": "https://x.com/dotey/status/2000796152921293156",
+        "tags": "访谈",
+        "done": false
+    }
 ]
