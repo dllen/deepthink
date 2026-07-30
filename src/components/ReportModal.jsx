@@ -75,7 +75,7 @@ const ReportModal = ({ report, onClose }) => {
             src={report.path}
             title={report.title}
             className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox=""
           />
         </div>
       </div>
