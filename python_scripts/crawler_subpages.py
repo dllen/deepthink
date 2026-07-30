@@ -12,7 +12,7 @@ Unlike crawler.py (which wipes the DB on every run), this script:
     * Re-running is safe — INSERT OR IGNORE on the uid unique index.
 
 Defaults:
-    * MAX_SUBPAGES_PER_ROOT = 15      (≈ 60 sub-rows max + 4 roots)
+    * MAX_SUBPAGES_PER_ROOT = 30      (≈ 120 sub-rows max + 4 roots)
     * MIN_CONTENT_LEN        = 50     (skip essentially-empty pages)
     * Polite pause of 0.5 s between requests.
 
@@ -66,7 +66,7 @@ ROOT_URLS: list[dict] = [
     },
 ]
 
-MAX_SUBPAGES_PER_ROOT = 15
+MAX_SUBPAGES_PER_ROOT = 30
 MIN_CONTENT_LEN = 50
 REQUEST_TIMEOUT = 25
 POLITE_PAUSE = 0.5  # seconds between HTTP calls

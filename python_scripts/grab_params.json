@@ -1,62 +1,82 @@
 [
-    {
-        "url": "https://philippeoger.com/pages/deep-dive-into-nvidias-virtuous-cycle",
-        "tags": "NVIDIA",
-        "done": true
-    },
-    {
-        "url": "https://principles-wiki.net/principles:gall_s_law",
-        "tags": "Principles",
-        "done": true
-    },
-    {
-        "url": "https://mp.weixin.qq.com/s/iWVGV4UxtEox3vGdnUeqrg",
-        "tags": "AI",
-        "done": true
-    },
-    {
-        "url": "https://mp.weixin.qq.com/s/pfocdR00FrLXc-yGDrtg2Q",
-        "tags": "AI",
-        "done": true
-    },
-    {
-        "url": "https://mp.weixin.qq.com/s/H-UujFAfSLX4PAiWz4-GFg",
-        "tags": "AI",
-        "done": true
-    },
-    {
-        "url": "https://mp.weixin.qq.com/s/cawlqozNm4yXj1nCRy7Cjw",
-        "tags": "投资",
-        "done": true
-    },
-    {
-        "url": "https://mp.weixin.qq.com/s/Qwo9mBRue9-W7jsgwD3ztQ",
-        "tags": "悟道",
-        "done": true
-    },
-    {
-        "url": "https://www.53ai.com/news/LargeLanguageModel/2026011069524.html",
-        "tags": "AI",
-        "done": true
-    },
-    {
-        "url": "https://finance.sina.com.cn/hy/hyjz/2025-12-05/doc-infztptz9571666.shtml",
-        "tags": "访谈",
-        "done": true
-    },
-    {
-        "url": "https://xueqiu.com/4855909358/361171647",
-        "tags": "访谈",
-        "done": false
-    },
-    {
-        "url": "https://wallstreetcn.com/articles/3761015",
-        "tags": "访谈",
-        "done": false
-    },
-    {
-        "url": "https://x.com/dotey/status/2000796152921293156",
-        "tags": "访谈",
-        "done": false
-    }
+  {
+    "url": "https://philippeoger.com/pages/deep-dive-into-nvidias-virtuous-cycle",
+    "tags": "NVIDIA",
+    "done": true
+  },
+  {
+    "url": "https://principles-wiki.net/principles:gall_s_law",
+    "tags": "Principles",
+    "done": true
+  },
+  {
+    "url": "https://mp.weixin.qq.com/s/iWVGV4UxtEox3vGdnUeqrg",
+    "tags": "AI",
+    "done": true
+  },
+  {
+    "url": "https://mp.weixin.qq.com/s/pfocdR00FrLXc-yGDrtg2Q",
+    "tags": "AI",
+    "done": true
+  },
+  {
+    "url": "https://mp.weixin.qq.com/s/H-UujFAfSLX4PAiWz4-GFg",
+    "tags": "AI",
+    "done": true
+  },
+  {
+    "url": "https://mp.weixin.qq.com/s/cawlqozNm4yXj1nCRy7Cjw",
+    "tags": "投资",
+    "done": true
+  },
+  {
+    "url": "https://mp.weixin.qq.com/s/Qwo9mBRue9-W7jsgwD3ztQ",
+    "tags": "悟道",
+    "done": true
+  },
+  {
+    "url": "https://www.53ai.com/news/LargeLanguageModel/2026011069524.html",
+    "tags": "AI",
+    "done": true
+  },
+  {
+    "url": "https://finance.sina.com.cn/hy/hyjz/2025-12-05/doc-infztptz9571666.shtml",
+    "tags": "访谈",
+    "done": true
+  },
+  {
+    "url": "https://xueqiu.com/4855909358/361171647",
+    "tags": "访谈",
+    "done": false
+  },
+  {
+    "url": "https://wallstreetcn.com/articles/3761015",
+    "tags": "访谈",
+    "done": false
+  },
+  {
+    "url": "https://x.com/dotey/status/2000796152921293156",
+    "tags": "访谈",
+    "done": true
+  },
+  {
+    "url": "https://chuan.us/",
+    "tags": "悟道",
+    "done": true
+  },
+  {
+    "url": "https://www.mywiki.cn/%E7%99%BE%E5%8F%91%E7%99%BE%E4%B8%AD%E7%A9%BF%E5%BF%83%E9%BE%99%E7%88%AA%E6%89%8B/index.php/%E9%A6%96%E9%A1%B5",
+    "tags": "百传中穿心龙爪手",
+    "done": true
+  },
+  {
+    "url": "https://xiaolai.co/search",
+    "tags": "悟道",
+    "done": true
+  },
+  {
+    "url": "https://lixiaolai.com/",
+    "tags": "悟道",
+    "done": true
+  }
 ]
