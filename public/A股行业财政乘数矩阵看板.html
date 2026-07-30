@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股行业财政乘数 × 信贷传导矩阵看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root, [data-theme='light']{
+  --color-bg:#f6f5f1;
+  --color-surface:#ffffff;
+  --color-surface-2:#fbfaf7;
+  --color-surface-offset:#eeece5;
+  --color-divider:#e0ddd4;
+  --color-border:#d6d2c6;
+  --color-text:#211f19;
+  --color-text-muted:#6b675c;
+  --color-text-faint:#a29e91;
+  --color-text-inverse:#f9f8f4;
+  --color-primary:#8a1f21;
+  --color-primary-hover:#6c1416;
+  --color-primary-highlight:#f2dcdb;
+  --color-gold:#b9862c;
+  --color-gold-highlight:#f2e6cd;
+  --color-success:#2f6b3a;
+  --color-success-highlight:#d9e8dc;
+  --color-error:#a3341f;
+  --color-error-highlight:#f0dcd5;
+  --color-blue:#28577a;
+  --color-blue-highlight:#d8e3ea;
+  --color-purple:#5a3d7a;
+  --color-purple-highlight:#e2d9ea;
+  --radius-sm:0.375rem; --radius-md:0.625rem; --radius-lg:0.9rem; --radius-xl:1.25rem; --radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(30,26,18,0.08);
+  --shadow-md:0 6px 18px rgba(30,26,18,0.10);
+  --shadow-lg:0 16px 40px rgba(30,26,18,0.14);
+  --font-display:'Noto Serif SC', 'Songti SC', serif;
+  --font-body:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+}
+[data-theme='dark']{
+  --color-bg:#171512;
+  --color-surface:#1e1b17;
+  --color-surface-2:#221f1a;
+  --color-surface-offset:#26221c;
+  --color-divider:#332e26;
+  --color-border:#3d372c;
+  --color-text:#eae6dc;
+  --color-text-muted:#a49d8d;
+  --color-text-faint:#726b5c;
+  --color-text-inverse:#211f19;
+  --color-primary:#e0736f;
+  --color-primary-hover:#eb908c;
+  --color-primary-highlight:#3c2523;
+  --color-gold:#e3b356;
+  --color-gold-highlight:#3e341f;
+  --color-success:#7fbb7f;
+  --color-success-highlight:#243527;
+  --color-error:#e0736f;
+  --color-error-highlight:#3c2523;
+  --color-blue:#7fb0d6;
+  --color-blue-highlight:#20313f;
+  --color-purple:#b79bd9;
+  --color-purple-highlight:#332944;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:0 6px 18px rgba(0,0,0,0.35);
+  --shadow-lg:0 16px 40px rgba(0,0,0,0.45);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{-webkit-text-size-adjust:none;scroll-behavior:smooth;}
+body{
+  font-family:var(--font-body);
+  background:
+    radial-gradient(circle at 15% -10%, color-mix(in oklab, var(--color-primary) 6%, transparent), transparent 40%),
+    var(--color-bg);
+  color:var(--color-text);
+  line-height:1.6;
+  min-height:100dvh;
+  font-size:clamp(0.95rem,0.9rem+0.2vw,1.05rem);
+}
+.wrap{max-width:1360px;margin:0 auto;padding: clamp(1rem,3vw,2.5rem);}
+
+/* Header */
+header.top{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:1.5rem;
+  padding-bottom:1.5rem; border-bottom:1px solid var(--color-divider); margin-bottom:1.75rem;
+  flex-wrap:wrap;
+}
+.brand{display:flex; gap:0.9rem; align-items:flex-start;}
+.brand svg{flex-shrink:0; margin-top:4px;}
+h1{
+  font-family:var(--font-display); font-weight:700;
+  font-size:clamp(1.4rem,1.1rem+1.4vw,2.1rem);
+  letter-spacing:0.01em;
+  color:var(--color-text);
+}
+.subtitle{color:var(--color-text-muted); font-size:0.92rem; margin-top:0.3rem; max-width:640px;}
+.meta-tags{display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.65rem;}
+.tag{
+  font-size:0.72rem; padding:0.22rem 0.6rem; border-radius:var(--radius-full);
+  background:var(--color-surface-offset); color:var(--color-text-muted); border:1px solid var(--color-border);
+  white-space:nowrap;
+}
+.header-controls{display:flex; gap:0.6rem; align-items:center;}
+.theme-toggle{
+  width:38px;height:38px;border-radius:var(--radius-full);
+  background:var(--color-surface); border:1px solid var(--color-border);
+  display:flex;align-items:center;justify-content:center; color:var(--color-text);
+  box-shadow:var(--shadow-sm);
+}
+.theme-toggle:hover{background:var(--color-surface-offset);}
+
+/* KPI row */
+.kpi-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:0.85rem; margin-bottom:1.75rem;
+}
+.kpi-card{
+  background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg);
+  padding:1rem 1.15rem; box-shadow:var(--shadow-sm);
+}
+.kpi-label{font-size:0.74rem; color:var(--color-text-muted); margin-bottom:0.35rem;}
+.kpi-value{font-family:var(--font-display); font-size:1.35rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--color-text);}
+.kpi-delta{font-size:0.78rem; margin-top:0.3rem;}
+.kpi-delta.down{color:var(--color-error);}
+.kpi-delta.up{color:var(--color-success);}
+.kpi-delta.flat{color:var(--color-text-faint);}
+
+/* Section */
+section{margin-bottom:2.25rem;}
+.section-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.9rem; flex-wrap:wrap; gap:0.5rem;}
+h2{font-family:var(--font-display); font-weight:700; font-size:clamp(1.1rem,1rem+0.4vw,1.35rem);}
+.section-desc{color:var(--color-text-muted); font-size:0.85rem;}
+
+.panel{
+  background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-xl);
+  padding:clamp(1rem,2vw,1.75rem); box-shadow:var(--shadow-sm);
+}
+
+/* Filters */
+.filter-bar{display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.1rem;}
+.filter-btn{
+  font-size:0.8rem; padding:0.4rem 0.85rem; border-radius:var(--radius-full);
+  border:1px solid var(--color-border); background:var(--color-surface-2); color:var(--color-text-muted);
+  cursor:pointer; transition:all 0.15s ease;
+}
+.filter-btn:hover{background:var(--color-surface-offset); color:var(--color-text);}
+.filter-btn.active{background:var(--color-primary); color:var(--color-text-inverse); border-color:var(--color-primary);}
+
+/* Grid layouts */
+.two-col{display:grid; grid-template-columns:1.15fr 0.85fr; gap:1.25rem;}
+@media (max-width:960px){.two-col{grid-template-columns:1fr;}}
+
+.chart-box{position:relative; height:520px;}
+.chart-box.short{height:380px;}
+
+/* Legend cycle chips */
+.cycle-legend{display:flex; gap:0.6rem; flex-wrap:wrap; margin-top:0.8rem;}
+.chip{display:flex; align-items:center; gap:0.4rem; font-size:0.76rem; color:var(--color-text-muted);}
+.dot{width:10px;height:10px;border-radius:50%;}
+
+/* Matrix / heatmap table */
+.matrix-scroll{overflow-x:auto;}
+table.matrix{border-collapse:collapse; width:100%; min-width:920px; font-size:0.82rem;}
+table.matrix th, table.matrix td{padding:0.5rem 0.6rem; text-align:center; border-bottom:1px solid var(--color-divider);}
+table.matrix th{
+  font-weight:600; color:var(--color-text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em;
+  position:sticky; top:0; background:var(--color-surface);
+}
+table.matrix td.industry-name{text-align:left; font-weight:600; color:var(--color-text); position:sticky; left:0; background:var(--color-surface); white-space:nowrap;}
+table.matrix tr:hover td{background:var(--color-surface-offset);}
+table.matrix tr:hover td.industry-name{background:var(--color-surface-offset);}
+.heat-cell{font-variant-numeric:tabular-nums; font-weight:600; border-radius:var(--radius-sm); color:#221f19;}
+.badge-cycle{
+  display:inline-block; font-size:0.68rem; padding:0.2rem 0.55rem; border-radius:var(--radius-full); font-weight:600;
+  white-space:nowrap;
+}
+
+/* Ranked bars */
+.rank-list{display:flex; flex-direction:column; gap:0.55rem;}
+.rank-row{display:grid; grid-template-columns:120px 1fr 60px; align-items:center; gap:0.6rem; font-size:0.82rem;}
+.rank-name{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rank-track{height:16px; background:var(--color-surface-offset); border-radius:var(--radius-full); position:relative; overflow:hidden;}
+.rank-fill{height:100%; border-radius:var(--radius-full); transition:width 0.6s cubic-bezier(0.16,1,0.3,1);}
+.rank-score{text-align:right; font-variant-numeric:tabular-nums; font-weight:600;}
+
+/* Cards / detail table */
+.detail-table-wrap{overflow-x:auto;}
+table.detail{border-collapse:collapse; width:100%; font-size:0.82rem; min-width:1100px;}
+table.detail th{
+  text-align:left; padding:0.6rem 0.7rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em;
+  color:var(--color-text-muted); border-bottom:2px solid var(--color-border); white-space:nowrap;
+}
+table.detail td{padding:0.65rem 0.7rem; border-bottom:1px solid var(--color-divider); vertical-align:top;}
+table.detail tr:hover td{background:var(--color-surface-offset);}
+.tag-pill{display:inline-block; font-size:0.68rem; padding:0.15rem 0.5rem; border-radius:var(--radius-full); margin:0.1rem 0.15rem 0.1rem 0; white-space:nowrap;}
+.note-cell{max-width:340px; color:var(--color-text-muted); font-size:0.78rem; line-height:1.5;}
+.score-cell{font-weight:700; font-variant-numeric:tabular-nums; text-align:center;}
+
+/* Sources */
+.sources{font-size:0.8rem; color:var(--color-text-muted);}
+.sources ol{padding-left:1.2rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:0.3rem 1rem;}
+.sources a{color:var(--color-primary);}
+
+footer{text-align:center; color:var(--color-text-faint); font-size:0.78rem; padding:2rem 0 1rem;}
+
+/* Methodology accordion */
+.method-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem;}
+.method-item{border-left:3px solid var(--color-primary); padding-left:0.85rem;}
+.method-item h4{font-size:0.85rem; margin-bottom:0.3rem;}
+.method-item p{font-size:0.78rem; color:var(--color-text-muted); line-height:1.55;}
+
+@media (max-width:640px){
+  .rank-row{grid-template-columns:90px 1fr 50px;}
+  header.top{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="brand">
+    <svg width="42" height="42" viewBox="0 0 48 48" fill="none" aria-label="矩阵看板标志">
+      <rect x="4" y="4" width="40" height="40" rx="8" stroke="currentColor" stroke-width="2.2" opacity="0.25"/>
+      <path d="M14 30 L14 20 M24 30 L24 14 M34 30 L34 24" stroke="#8a1f21" stroke-width="3.2" stroke-linecap="round"/>
+      <circle cx="14" cy="20" r="2.6" fill="#b9862c"/>
+      <circle cx="24" cy="14" r="2.6" fill="#b9862c"/>
+      <circle cx="34" cy="24" r="2.6" fill="#b9862c"/>
+    </svg>
+    <div>
+      <h1>A股行业财政乘数 × 信贷传导矩阵</h1>
+      <p class="subtitle">申万一级31个行业 · 基建/消费/地产财政乘数敏感度与信贷传导效率动态评分 · 未来两季度盈利波动方向标注</p>
+      <div class="meta-tags">
+        <span class="tag">数据截至 2026年7月可得数据</span>
+        <span class="tag">框架化评分 · 非投资建议</span>
+        <span class="tag">31个申万一级行业全覆盖</span>
+      </div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <button class="theme-toggle" data-theme-toggle aria-label="Switch to dark mode">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- KPI STRIP -->
+<section>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">H1社融增量</div>
+      <div class="kpi-value">20.84万亿</div>
+      <div class="kpi-delta down">同比少增2.02万亿</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">政府债占社融存量</div>
+      <div class="kpi-value">21.9%</div>
+      <div class="kpi-delta up">同比+1.3pct，结构性支撑增强</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">新增专项债发行进度</div>
+      <div class="kpi-value">47%→51%</div>
+      <div class="kpi-delta flat">7月22日已达51%，Q3为发行高峰</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">超长期特别国债发行</div>
+      <div class="kpi-value">7620亿</div>
+      <div class="kpi-delta up">全年1.3万亿，进度快于去年同期</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">H1基建投资</div>
+      <div class="kpi-value">-2.4%</div>
+      <div class="kpi-delta down">年内首次转负，Q3预期止跌回升</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">H1房地产开发投资</div>
+      <div class="kpi-value">-18.0%</div>
+      <div class="kpi-delta down">降幅持续扩大，到位资金-20.2%</div>
+    </div>
+  </div>
+</section>
+
+<!-- QUADRANT + CYCLE SUMMARY -->
+<section>
+  <div class="section-head">
+    <div>
+      <h2>财政乘数受益 × 信贷传导效率 象限图</h2>
+      <p class="section-desc">横轴：财政乘数综合暴露度（基建+消费+地产+两重加权）；纵轴：信贷传导吸收效率（净额=吸收效率-挤压风险）。气泡大小=综合评分绝对值，颜色=周期标签</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="two-col">
+      <div class="chart-box"><canvas id="quadrantChart"></canvas></div>
+      <div>
+        <div class="filter-bar" id="cycleFilterBar"></div>
+        <p class="section-desc" style="margin-bottom:0.6rem;">象限图气泡默认不显示文字标签，鼠标悬停气泡可查看行业名称与评分，避免标签重叠</p>
+        <div class="rank-list" id="rankList" style="max-height:460px; overflow-y:auto; padding-right:0.4rem;"></div>
+      </div>
+    </div>
+    <div class="cycle-legend" id="cycleLegendBottom"></div>
+  </div>
+</section>
+
+<!-- HEATMAP MATRIX -->
+<section>
+  <div class="section-head">
+    <div>
+      <h2>行业受益/受压强度矩阵</h2>
+      <p class="section-desc">0-5分制：基建链、消费链、地产链、两重专项、信贷吸收效率(高=正向)、信用挤压风险(高=负向)、出口导向度</p>
+    </div>
+    <div class="filter-bar" id="tagFilterBar"></div>
+  </div>
+  <div class="panel matrix-scroll">
+    <table class="matrix" id="matrixTable"></table>
+  </div>
+</section>
+
+<!-- DETAIL TABLE -->
+<section>
+  <div class="section-head">
+    <div>
+      <h2>行业分类与盈利波动明细表</h2>
+      <p class="section-desc">多标签分类（可同时属于多个类型）+ 主导标签 + 周期状态 + 未来两季度盈利方向/波动等级</p>
+    </div>
+  </div>
+  <div class="panel detail-table-wrap">
+    <table class="detail" id="detailTable"></table>
+  </div>
+</section>
+
+<!-- METHODOLOGY -->
+<section>
+  <div class="section-head"><h2>评分方法说明</h2></div>
+  <div class="panel">
+    <div class="method-grid">
+      <div class="method-item">
+        <h4>财政乘数三链路（0-5分）</h4>
+        <p>分别评估基建链、消费链、地产链的直接受益强度，并叠加"两重"（国家重大战略+安全能力建设）与"两新"（设备更新+以旧换新）专项资金的结构性加分，避免用单一分数掩盖链路分化。</p>
+      </div>
+      <div class="method-item">
+        <h4>信贷吸收效率 vs 挤压风险</h4>
+        <p>吸收效率衡量行业能否以低成本获得信贷/债券资金（如央国企、现金流稳定行业效率高）；挤压风险衡量高杠杆、应收账款高、现金流脆弱行业受信用收缩冲击的程度。两者分离而非合并，避免"信贷敏感=负面"的误判。</p>
+      </div>
+      <div class="method-item">
+        <h4>综合评分公式</h4>
+        <p>综合评分 = 0.5×(基建+消费+地产+两重的加权财政脉冲) + 0.5×(信贷吸收效率-信用挤压风险) 后按当前宏观方向调整（基建边际转正、地产持续负向、消费温和正向）。区间[-8,+8]。</p>
+      </div>
+      <div class="method-item">
+        <h4>周期标签规则</h4>
+        <p>扩张：政策与信贷均正向，盈利弹性向上。弱复苏：政策正向但需求/资金传导滞后。中性震荡：政策与需求信号对冲。信用挤压：地产/高杠杆/现金流压力主导，不受益于当前财政脉冲。</p>
+      </div>
+      <div class="method-item">
+        <h4>盈利波动标注</h4>
+        <p>未来两季度盈利方向为定性分级（上修概率高/中/低、下修压力），非精确预测数值；波动等级（低/中/高/极高）反映行业对政策与信用环境变化的盈利弹性，供风险管理参考。</p>
+      </div>
+      <div class="method-item">
+        <h4>多标签分类原则</h4>
+        <p>行业可同时具备"高杠杆依赖型""政策刺激受益型""出口导向型"中多个标签（如汽车兼具政策受益与出口导向），避免强制单一分类扭曲实际风险敞口；看板设"主导标签"用于默认配色。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOURCES -->
+<section>
+  <div class="section-head"><h2>数据来源</h2></div>
+  <div class="panel sources">
+    <ol>
+      <li><a href="https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964126.html" target="_blank">国家统计局：2026年1-6月房地产市场基本情况</a></li>
+      <li><a href="https://www.163.com/dy/article/L1SHIQGT0514929C.html" target="_blank">国家统计局：2026年1-6月固定资产投资数据</a></li>
+      <li><a href="https://www.stcn.com/article/detail/4020684.html" target="_blank">央行：2026年6月末社会融资规模存量462.06万亿元</a></li>
+      <li><a href="https://finance.eastmoney.com/a/202607153807790817.html" target="_blank">央行2026年上半年金融统计数据报告解读</a></li>
+      <li><a href="https://www.chinanews.com/cj/2026/07-22/10664576.shtml" target="_blank">财政部：上半年新增专项债券发行2.07万亿元，进度47%</a></li>
+      <li><a href="https://www.163.com/dy/article/L2GUSB1605198CJN.html" target="_blank">7月22日新增专项债发行进度达51%，Q3为发行高峰</a></li>
+      <li><a href="http://finance.people.com.cn/n1/2026/0507/c1004-40715017.html" target="_blank">2026年超长期特别国债发行安排</a></li>
+      <li><a href="http://epaper.zqrb.cn/images/2026-04/24/A2/zqrb20260424A2.pdf" target="_blank">2026年"两重"建设资金下达进度（76%）</a></li>
+      <li><a href="https://www.163.com/dy/article/L2HP1DJE05199NHJ.html" target="_blank">基建投资资金集中发力分析：Q3止跌回升预期</a></li>
+      <li><a href="https://pdf.dfcfw.com/pdf/H3_AP202607161827032197_1.pdf" target="_blank">分化格局下的经济新支点：财政资金落地对基建投资的支撑</a></li>
+      <li><a href="https://finance.sina.com.cn/roll/2026-07-06/doc-inifxxwz8205880.shtml" target="_blank">上半年地方债发行近6万亿：下半年增量方案分析</a></li>
+      <li><a href="https://blog.csdn.net/byedo/article/details/151976854" target="_blank">申万一级行业分类（2021版）参考清单</a></li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  行业分类评分为框架化分析工具，仅供研究参考，不构成投资建议 · 数据截至2026年7月可得公开数据
+</footer>
+
+</div>
+
+<script>
+const DATA = {
+  "metadata": {
+    "data_date": "截至2026年7月可得数据",
+    "fiscal_context": {
+      "special_bond_progress": "47%→51%（截至7月22日，全年额度4.4万亿）",
+      "ultra_long_bond": "超长期特别国债已发7620亿（全年1.3万亿），两重项目清单资金下达进度76%",
+      "gov_bond_share": "政府债占社融存量21.9%（+1.3pct YoY）",
+      "social_financing": "H1社融增量20.84万亿，同比少2.02万亿",
+      "infra_investment": "H1基建投资-2.4%，Q3预期止跌回升",
+      "realestate_investment": "H1地产投资-18.0%，持续恶化",
+      "manufacturing_investment": "H1制造业投资-1.2%"
+    }
+  },
+  "industries": [
+    {"id":"建筑装饰","tags":["高杠杆依赖型","政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":5,"fiscal_consumption":1,"fiscal_realestate":3,"fiscal_liang_zhong":4,"credit_absorption_efficiency":2,"credit_squeeze_risk":4,"export_orientation":1,"composite_score":1.5,"cycle_label":"弱复苏","earnings_direction":"上修概率低","earnings_volatility":"高","note":"基建链核心受益，但受制于信用挤压（应收账款高、回款慢），Q3专项债提速后有望改善"},
+    {"id":"建筑材料","tags":["高杠杆依赖型"],"primary_tag":"高杠杆依赖型","fiscal_infra":4,"fiscal_consumption":1,"fiscal_realestate":4,"fiscal_liang_zhong":3,"credit_absorption_efficiency":2,"credit_squeeze_risk":5,"export_orientation":1,"composite_score":-1.5,"cycle_label":"信用挤压","earnings_direction":"下修压力大","earnings_volatility":"极高","note":"地产链核心承压（地产-18%），水泥/玻璃需求低迷；基建边际改善对冲有限"},
+    {"id":"房地产","tags":["高杠杆依赖型"],"primary_tag":"高杠杆依赖型","fiscal_infra":1,"fiscal_consumption":1,"fiscal_realestate":2,"fiscal_liang_zhong":0,"credit_absorption_efficiency":1,"credit_squeeze_risk":5,"export_orientation":0,"composite_score":-4.0,"cycle_label":"信用挤压","earnings_direction":"下修压力极大","earnings_volatility":"极高","note":"投资-18%，销售-13.6%，到位资金-20.2%；银行贷款-31.7%；一线城市房价环比4连涨但整体去杠杆仍在进行"},
+    {"id":"钢铁","tags":["高杠杆依赖型"],"primary_tag":"高杠杆依赖型","fiscal_infra":3,"fiscal_consumption":1,"fiscal_realestate":4,"fiscal_liang_zhong":2,"credit_absorption_efficiency":2,"credit_squeeze_risk":4,"export_orientation":2,"composite_score":-1.0,"cycle_label":"信用挤压","earnings_direction":"下修压力中等","earnings_volatility":"高","note":"地产用钢需求大幅萎缩；出口受贸易摩擦压制；基建对冲但仍不够"},
+    {"id":"有色金属","tags":["出口导向型","政策刺激受益型"],"primary_tag":"出口导向型","fiscal_infra":3,"fiscal_consumption":1,"fiscal_realestate":2,"fiscal_liang_zhong":3,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":4,"composite_score":2.0,"cycle_label":"中性震荡","earnings_direction":"上修概率中等","earnings_volatility":"中高","note":"铜/铝受AI数据中心、新能源需求驱动；地产拖累铝端部分需求；出口贸易摩擦有扰动"},
+    {"id":"电力设备","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":4,"fiscal_consumption":1,"fiscal_realestate":1,"fiscal_liang_zhong":5,"credit_absorption_efficiency":4,"credit_squeeze_risk":2,"export_orientation":3,"composite_score":4.5,"cycle_label":"扩张","earnings_direction":"上修概率高","earnings_volatility":"中","note":"两重/六张网核心受益（新型能源体系建设）；光伏/储能/变压器出海受益外需"},
+    {"id":"国防军工","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":2,"fiscal_consumption":0,"fiscal_realestate":0,"fiscal_liang_zhong":4,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":1,"composite_score":3.5,"cycle_label":"扩张","earnings_direction":"上修概率中高","earnings_volatility":"低","note":"两重战略安全领域核心受益；央企信用资质好；订单能见度高；与宏观周期相关性低"},
+    {"id":"计算机","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":2,"fiscal_consumption":2,"fiscal_realestate":0,"fiscal_liang_zhong":5,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":2,"composite_score":4.0,"cycle_label":"扩张","earnings_direction":"上修概率高","earnings_volatility":"中","note":"AI/数字经济国家战略受益；政务信创、工业互联网专项资金；信息传输业投资+25.6%"},
+    {"id":"通信","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":3,"fiscal_consumption":1,"fiscal_realestate":0,"fiscal_liang_zhong":5,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":2,"composite_score":4.5,"cycle_label":"扩张","earnings_direction":"上修概率高","earnings_volatility":"低中","note":"六张网（信息网络）核心，5G/算力基础设施两重重点；运营商央企现金流强"},
+    {"id":"电子","tags":["出口导向型","政策刺激受益型"],"primary_tag":"出口导向型","fiscal_infra":2,"fiscal_consumption":2,"fiscal_realestate":0,"fiscal_liang_zhong":4,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":5,"composite_score":3.5,"cycle_label":"扩张","earnings_direction":"上修概率中高","earnings_volatility":"中高","note":"消费电子/半导体国产替代+出口（AI算力链）；设备更新/以旧换新提振消费端；贸易摩擦是扰动因素"},
+    {"id":"汽车","tags":["出口导向型","政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":1,"fiscal_consumption":5,"fiscal_realestate":0,"fiscal_liang_zhong":3,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":4,"composite_score":3.5,"cycle_label":"扩张","earnings_direction":"上修概率中高","earnings_volatility":"中","note":"以旧换新（2500亿超长债支持消费品）核心受益；新能源汽车出口全球化；龙头现金流健康"},
+    {"id":"家用电器","tags":["出口导向型","政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":5,"fiscal_realestate":2,"fiscal_liang_zhong":3,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":4,"composite_score":3.5,"cycle_label":"扩张","earnings_direction":"上修概率中高","earnings_volatility":"低中","note":"以旧换新直接受益；出口结构优化（东南亚+欧洲）；地产拖累家装需求部分对冲"},
+    {"id":"食品饮料","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":4,"fiscal_realestate":0,"fiscal_liang_zhong":1,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":1,"composite_score":2.0,"cycle_label":"弱复苏","earnings_direction":"上修概率低中","earnings_volatility":"中","note":"消费政策托底但居民收入预期偏弱（服务零售+5.3%偏慢）；白酒渠道库存压力仍大"},
+    {"id":"商贸零售","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":4,"fiscal_realestate":0,"fiscal_liang_zhong":2,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":1.5,"cycle_label":"弱复苏","earnings_direction":"上修概率低","earnings_volatility":"中","note":"社零增速低于上年全年；但电商平台/平价业态受益消费降级；以旧换新创造增量"},
+    {"id":"社会服务","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":3,"fiscal_realestate":0,"fiscal_liang_zhong":2,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":1.0,"cycle_label":"弱复苏","earnings_direction":"中性","earnings_volatility":"中","note":"旅游/餐饮/文娱服务消费较强（+5.3%），但增速低于上年；政策支持养老/托育/健身"},
+    {"id":"医药生物","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":2,"fiscal_realestate":0,"fiscal_liang_zhong":4,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":2,"composite_score":3.0,"cycle_label":"扩张","earnings_direction":"上修概率中高","earnings_volatility":"中","note":"两重（高等教育/医疗）支持；医疗设备更新专项；创新药出海、CXO受益全球产业链"},
+    {"id":"银行","tags":["高杠杆依赖型"],"primary_tag":"高杠杆依赖型","fiscal_infra":3,"fiscal_consumption":2,"fiscal_realestate":2,"fiscal_liang_zhong":4,"credit_absorption_efficiency":5,"credit_squeeze_risk":3,"export_orientation":1,"composite_score":1.5,"cycle_label":"中性震荡","earnings_direction":"中性偏下","earnings_volatility":"低","note":"注资特别国债补充资本（3000亿）；但贷款降速提质导致净利差收窄；地产不良资产仍是隐患"},
+    {"id":"非银金融","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":1,"fiscal_consumption":1,"fiscal_realestate":1,"fiscal_liang_zhong":3,"credit_absorption_efficiency":4,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":2.0,"cycle_label":"中性震荡","earnings_direction":"上修概率低中","earnings_volatility":"中高","note":"资本市场政策支持活跃；证券/险资受益权益市场；政府债大量发行利好承销业务"},
+    {"id":"机械设备","tags":["政策刺激受益型","出口导向型"],"primary_tag":"政策刺激受益型","fiscal_infra":3,"fiscal_consumption":1,"fiscal_realestate":1,"fiscal_liang_zhong":4,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":3,"composite_score":3.0,"cycle_label":"弱复苏","earnings_direction":"上修概率中等","earnings_volatility":"中","note":"设备更新+两重项目；工业机器人/工程机械出口；制造业整体投资-1.2%仍承压"},
+    {"id":"公用事业","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":4,"fiscal_consumption":1,"fiscal_realestate":0,"fiscal_liang_zhong":5,"credit_absorption_efficiency":5,"credit_squeeze_risk":1,"export_orientation":0,"composite_score":5.0,"cycle_label":"扩张","earnings_direction":"上修概率高","earnings_volatility":"低","note":"新型能源体系（六张网核心）；水利工程；央国企信用资质最优；电价改革提升盈利可预测性"},
+    {"id":"交通运输","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":5,"fiscal_consumption":1,"fiscal_realestate":0,"fiscal_liang_zhong":4,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":2,"composite_score":4.0,"cycle_label":"扩张","earnings_direction":"上修概率中高","earnings_volatility":"低中","note":"综合立体交通网建设；水运/航空投资快速增长（+19.8%、+11%）；央企资质优"},
+    {"id":"环保","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":3,"fiscal_consumption":0,"fiscal_realestate":0,"fiscal_liang_zhong":4,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":2.5,"cycle_label":"弱复苏","earnings_direction":"上修概率低中","earnings_volatility":"中","note":"长江经济带生态保护两重专项；城市地下管网改造；PPP模式仍存回款不确定性"},
+    {"id":"农林牧渔","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":1,"fiscal_consumption":2,"fiscal_realestate":0,"fiscal_liang_zhong":3,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":1.5,"cycle_label":"弱复苏","earnings_direction":"中性","earnings_volatility":"中高","note":"高标准农田建设两重专项；生猪周期波动；粮食安全战略长期受益"},
+    {"id":"基础化工","tags":["出口导向型","高杠杆依赖型"],"primary_tag":"出口导向型","fiscal_infra":2,"fiscal_consumption":1,"fiscal_realestate":2,"fiscal_liang_zhong":2,"credit_absorption_efficiency":3,"credit_squeeze_risk":3,"export_orientation":3,"composite_score":0.5,"cycle_label":"中性震荡","earnings_direction":"中性偏下","earnings_volatility":"中高","note":"出口受贸易摩擦扰动；地产/制造业需求偏弱；新材料/高端化工受益两重"},
+    {"id":"煤炭","tags":["高杠杆依赖型"],"primary_tag":"高杠杆依赖型","fiscal_infra":1,"fiscal_consumption":0,"fiscal_realestate":1,"fiscal_liang_zhong":2,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":-0.5,"cycle_label":"中性震荡","earnings_direction":"下修压力中等","earnings_volatility":"中高","note":"能源保障网受益（煤电保障）；但电价下行+新能源替代压制长期逻辑"},
+    {"id":"石油石化","tags":["出口导向型"],"primary_tag":"出口导向型","fiscal_infra":1,"fiscal_consumption":0,"fiscal_realestate":0,"fiscal_liang_zhong":2,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":3,"composite_score":1.5,"cycle_label":"中性震荡","earnings_direction":"中性","earnings_volatility":"高","note":"央企信用优质；油价波动主导盈利；国内需求弱、替代能源压制"},
+    {"id":"纺织服饰","tags":["出口导向型"],"primary_tag":"出口导向型","fiscal_infra":0,"fiscal_consumption":2,"fiscal_realestate":0,"fiscal_liang_zhong":1,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":4,"composite_score":1.0,"cycle_label":"中性震荡","earnings_direction":"中性","earnings_volatility":"中高","note":"出口为主要驱动，但受欧美关税影响；国内消费升级/降级分化"},
+    {"id":"轻工制造","tags":["出口导向型"],"primary_tag":"出口导向型","fiscal_infra":0,"fiscal_consumption":2,"fiscal_realestate":2,"fiscal_liang_zhong":1,"credit_absorption_efficiency":3,"credit_squeeze_risk":3,"export_orientation":4,"composite_score":0.0,"cycle_label":"中性震荡","earnings_direction":"中性偏下","earnings_volatility":"中","note":"家具受地产拖累；造纸/包装受消费影响；出口有一定对冲但贸易摩擦风险"},
+    {"id":"传媒","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":3,"fiscal_realestate":0,"fiscal_liang_zhong":2,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":1.0,"cycle_label":"弱复苏","earnings_direction":"上修概率低","earnings_volatility":"中高","note":"AI内容创作赋能；文化消费政策支持；广告市场承压"},
+    {"id":"美容护理","tags":["政策刺激受益型"],"primary_tag":"政策刺激受益型","fiscal_infra":0,"fiscal_consumption":3,"fiscal_realestate":0,"fiscal_liang_zhong":1,"credit_absorption_efficiency":4,"credit_squeeze_risk":1,"export_orientation":2,"composite_score":1.5,"cycle_label":"弱复苏","earnings_direction":"上修概率低中","earnings_volatility":"中","note":"消费升级/降级双向分化；国货品牌崛起；高端美妆受居民收入预期偏弱压制"},
+    {"id":"综合","tags":["中性"],"primary_tag":"中性","fiscal_infra":1,"fiscal_consumption":1,"fiscal_realestate":1,"fiscal_liang_zhong":1,"credit_absorption_efficiency":3,"credit_squeeze_risk":2,"export_orientation":1,"composite_score":0.0,"cycle_label":"中性震荡","earnings_direction":"中性","earnings_volatility":"中","note":"分类较杂，无明显主线驱动"}
+  ]
+};
+
+const CYCLE_COLORS = {
+  "扩张":"#2f6b3a",
+  "弱复苏":"#b9862c",
+  "中性震荡":"#5a3d7a",
+  "信用挤压":"#a3341f"
+};
+const CYCLE_HIGHLIGHT = {
+  "扩张":"#d9e8dc",
+  "弱复苏":"#f2e6cd",
+  "中性震荡":"#e2d9ea",
+  "信用挤压":"#f0dcd5"
+};
+const TAG_COLORS = {
+  "高杠杆依赖型":"#a3341f",
+  "政策刺激受益型":"#2f6b3a",
+  "出口导向型":"#28577a",
+  "中性":"#6b675c"
+};
+
+let activeCycleFilters = new Set();
+let activeTagFilters = new Set();
+
+function getData(){
+  return DATA.industries.filter(ind=>{
+    const cycleOk = activeCycleFilters.size===0 || activeCycleFilters.has(ind.cycle_label);
+    const tagOk = activeTagFilters.size===0 || ind.tags.some(t=>activeTagFilters.has(t));
+    return cycleOk && tagOk;
+  });
+}
+
+// ---- Cycle filter bar ----
+function buildCycleFilterBar(){
+  const bar = document.getElementById('cycleFilterBar');
+  bar.innerHTML='';
+  Object.keys(CYCLE_COLORS).forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className='filter-btn';
+    btn.textContent=c;
+    btn.style.borderColor = CYCLE_COLORS[c];
+    btn.onclick=()=>{
+      if(activeCycleFilters.has(c)) activeCycleFilters.delete(c);
+      else activeCycleFilters.add(c);
+      btn.classList.toggle('active');
+      refreshAll();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+function buildTagFilterBar(){
+  const bar = document.getElementById('tagFilterBar');
+  bar.innerHTML='';
+  Object.keys(TAG_COLORS).forEach(t=>{
+    if(t==='中性') return;
+    const btn = document.createElement('button');
+    btn.className='filter-btn';
+    btn.textContent=t;
+    btn.onclick=()=>{
+      if(activeTagFilters.has(t)) activeTagFilters.delete(t);
+      else activeTagFilters.add(t);
+      btn.classList.toggle('active');
+      refreshAll();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+function buildBottomLegend(){
+  const el = document.getElementById('cycleLegendBottom');
+  el.innerHTML = Object.entries(CYCLE_COLORS).map(([k,v])=>
+    `<span class="chip"><span class="dot" style="background:${v}"></span>${k}</span>`
+  ).join('');
+}
+
+// ---- Quadrant chart ----
+let quadrantChart;
+function buildQuadrantChart(){
+  const ctx = document.getElementById('quadrantChart').getContext('2d');
+  const data = getData();
+  const points = data.map(ind=>{
+    const fiscalX = ind.fiscal_infra + ind.fiscal_consumption + ind.fiscal_realestate*0.6 + ind.fiscal_liang_zhong*0.8;
+    const creditY = ind.credit_absorption_efficiency - ind.credit_squeeze_risk;
+    return {x:fiscalX, y:creditY, r: 6 + Math.abs(ind.composite_score)*2.2, label:ind.id, cycle:ind.cycle_label, score: ind.composite_score};
+  });
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? '#a49d8d' : '#6b675c';
+
+  if(quadrantChart) quadrantChart.destroy();
+  quadrantChart = new Chart(ctx,{
+    type:'bubble',
+    data:{
+      datasets:[{
+        data: points,
+        backgroundColor: points.map(p=>CYCLE_COLORS[p.cycle]+'cc'),
+        borderColor: points.map(p=>CYCLE_COLORS[p.cycle]),
+        borderWidth:1.5
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{
+          title:{display:true, text:'财政乘数综合暴露度 →', color:textColor, font:{size:12}},
+          grid:{color:gridColor}, ticks:{color:textColor, font:{size:11}}
+        },
+        y:{
+          title:{display:true, text:'信贷传导净效率 (吸收效率 − 挤压风险) →', color:textColor, font:{size:12}},
+          grid:{color:gridColor}, ticks:{color:textColor, font:{size:11}}
+        }
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:(item)=>{
+              const p = item.raw;
+              return `${p.label} | 周期:${p.cycle} | 综合评分:${p.score>0?'+':''}${p.score}`;
+            }
+          }
+        }
+      }
+    },
+    plugins:[{
+      id:'quadrantLabels',
+      afterDraw(chart){
+        const {ctx} = chart;
+        // Only render labels for hovered/active points to avoid clutter.
+        const active = chart.getActiveElements();
+        if(!active || active.length===0) return;
+        active.forEach(a=>{
+          const d = chart.data.datasets[a.datasetIndex].data[a.index];
+          const meta = chart.getDatasetMeta(a.datasetIndex).data[a.index];
+          if(!meta) return;
+          ctx.save();
+          ctx.font = '600 12px "Noto Sans SC", sans-serif';
+          ctx.fillStyle = isDark? '#eae6dc':'#211f19';
+          ctx.textAlign='center';
+          ctx.fillText(d.label, meta.x, meta.y - (6+Math.abs(d.score)*2.2) - 6);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
+
+// ---- Ranked bar list ----
+function buildRankList(){
+  const el = document.getElementById('rankList');
+  const data = [...getData()].sort((a,b)=>b.composite_score - a.composite_score);
+  const maxAbs = Math.max(...DATA.industries.map(d=>Math.abs(d.composite_score)), 1);
+  el.innerHTML = data.map(ind=>{
+    const pct = Math.abs(ind.composite_score)/maxAbs*100;
+    const isPositive = ind.composite_score >= 0;
+    const color = CYCLE_COLORS[ind.cycle_label];
+    return `<div class="rank-row">
+      <div class="rank-name" title="${ind.id}">${ind.id}</div>
+      <div class="rank-track">
+        <div class="rank-fill" style="width:${pct}%; background:${color}; margin-left:${isPositive?'0':'auto'};"></div>
+      </div>
+      <div class="rank-score" style="color:${color}">${ind.composite_score>0?'+':''}${ind.composite_score}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---- Heatmap matrix table ----
+function heatColor(value, max=5, positive=true){
+  const ratio = value/max;
+  if(positive){
+    // green scale
+    const l = 92 - ratio*45;
+    return `hsl(103, 40%, ${l}%)`;
+  } else {
+    const l = 92 - ratio*45;
+    return `hsl(6, 55%, ${l}%)`;
+  }
+}
+
+function buildMatrixTable(){
+  const table = document.getElementById('matrixTable');
+  const data = getData();
+  const cols = [
+    {key:'fiscal_infra', label:'基建链', positive:true},
+    {key:'fiscal_consumption', label:'消费链', positive:true},
+    {key:'fiscal_realestate', label:'地产链', positive:false},
+    {key:'fiscal_liang_zhong', label:'两重专项', positive:true},
+    {key:'credit_absorption_efficiency', label:'信贷吸收效率', positive:true},
+    {key:'credit_squeeze_risk', label:'信用挤压风险', positive:false},
+    {key:'export_orientation', label:'出口导向度', positive:true}
+  ];
+  let thead = '<thead><tr><th>行业</th>' + cols.map(c=>`<th>${c.label}</th>`).join('') + '<th>周期</th><th>综合评分</th></tr></thead>';
+  let tbody = '<tbody>' + data.map(ind=>{
+    const cells = cols.map(c=>{
+      const v = ind[c.key];
+      const isRiskCol = c.key === 'fiscal_realestate' || c.key === 'credit_squeeze_risk';
+      const bg = heatColor(v, 5, !isRiskCol);
+      return `<td><span class="heat-cell" style="background:${bg}; padding:0.25rem 0.5rem; display:inline-block; min-width:28px;">${v}</span></td>`;
+    }).join('');
+    const cycleColor = CYCLE_COLORS[ind.cycle_label];
+    const cycleHl = CYCLE_HIGHLIGHT[ind.cycle_label];
+    return `<tr>
+      <td class="industry-name">${ind.id}</td>
+      ${cells}
+      <td><span class="badge-cycle" style="background:${cycleHl}; color:${cycleColor}">${ind.cycle_label}</span></td>
+      <td class="score-cell" style="color:${ind.composite_score>=0?'#2f6b3a':'#a3341f'}">${ind.composite_score>0?'+':''}${ind.composite_score}</td>
+    </tr>`;
+  }).join('') + '</tbody>';
+  table.innerHTML = thead + tbody;
+}
+
+// ---- Detail table ----
+function buildDetailTable(){
+  const table = document.getElementById('detailTable');
+  const data = [...getData()].sort((a,b)=>b.composite_score - a.composite_score);
+  let thead = `<thead><tr>
+    <th>行业</th><th>分类标签</th><th>周期状态</th><th>综合评分</th>
+    <th>盈利方向(未来两季度)</th><th>波动等级</th><th>驱动说明</th>
+  </tr></thead>`;
+  let tbody = '<tbody>' + data.map(ind=>{
+    const tagsHtml = ind.tags.map(t=>{
+      const c = TAG_COLORS[t] || '#6b675c';
+      return `<span class="tag-pill" style="background:${c}22; color:${c}; border:1px solid ${c}55;">${t}</span>`;
+    }).join('');
+    const cycleColor = CYCLE_COLORS[ind.cycle_label];
+    const cycleHl = CYCLE_HIGHLIGHT[ind.cycle_label];
+    return `<tr>
+      <td style="font-weight:700;">${ind.id}</td>
+      <td>${tagsHtml}</td>
+      <td><span class="badge-cycle" style="background:${cycleHl}; color:${cycleColor}">${ind.cycle_label}</span></td>
+      <td class="score-cell" style="color:${ind.composite_score>=0?'#2f6b3a':'#a3341f'}">${ind.composite_score>0?'+':''}${ind.composite_score}</td>
+      <td>${ind.earnings_direction}</td>
+      <td>${ind.earnings_volatility}</td>
+      <td class="note-cell">${ind.note}</td>
+    </tr>`;
+  }).join('') + '</tbody>';
+  table.innerHTML = thead + tbody;
+}
+
+function refreshAll(){
+  buildQuadrantChart();
+  buildRankList();
+  buildMatrixTable();
+  buildDetailTable();
+}
+
+// init
+buildCycleFilterBar();
+buildTagFilterBar();
+buildBottomLegend();
+refreshAll();
+
+// theme toggle
+(function () {
+  const t = document.querySelector('[data-theme-toggle]'),
+    r = document.documentElement;
+  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  r.setAttribute('data-theme', d);
+  t.addEventListener('click', () => {
+    d = d === 'dark' ? 'light' : 'dark';
+    r.setAttribute('data-theme', d);
+    t.setAttribute('aria-label', 'Switch to ' + (d === 'dark' ? 'light' : 'dark') + ' mode');
+    t.innerHTML =
+      d === 'dark'
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+    refreshAll();
+  });
+})();
+</script>
+</body>
+</html>
