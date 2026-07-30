@@ -1,18 +1,10 @@
 import { useState } from 'react';
 import staticReports from '../assets/static-reports';
 import ReportModal from './ReportModal';
+import { formatDate } from '../utils/formatDate';
 
 const ReportsPanel = () => {
   const [activeReport, setActiveReport] = useState(null);
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
 
   if (!staticReports || staticReports.length === 0) return null;
 
