@@ -5,6 +5,7 @@ import './App.css';
 import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
+import ReportsPanel from './components/ReportsPanel';
 import SQLiteReader from './utils/sqliteReader';
 import data from './assets/static-data.js';
 import logo from './assets/logo.svg';
@@ -125,22 +126,17 @@ const App = () => {
             </h1>
             <p className="text-slate-500 text-xs mt-1">深度思考 • 智慧洞见</p>
           </div>
-          <div className="flex items-center gap-4">
-            <a
-              href="/A股行业财政乘数矩阵看板.html"
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 rounded-full transition-colors duration-200"
-            >
-              A股矩阵看板
-            </a>
-            <div className="hidden sm:block text-sm text-slate-400">
-              {filteredData.length} 条内容
-            </div>
+          <div className="hidden sm:block text-sm text-slate-400">
+            {filteredData.length} 条内容
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         
+        {/* 分析报告栏目 */}
+        <ReportsPanel />
+
         {/* 搜索栏 */}
         <div className="mb-6">
           <SearchBar 
