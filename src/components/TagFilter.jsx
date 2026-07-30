@@ -5,7 +5,8 @@ const TagFilter = ({ tags, selectedTags, onTagToggle, onClearFilters }) => {
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={onClearFilters}
-          className={`text-sm px-4 py-1.5 rounded-full transition-all duration-200 font-medium ${
+          aria-pressed={selectedTags.length === 0}
+          className={`text-sm px-4 py-1.5 rounded-full transition-all duration-200 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
             selectedTags.length === 0
               ? 'bg-indigo-500 text-white shadow-md shadow-indigo-200 transform scale-105'
               : 'text-slate-600 hover:bg-white hover:shadow-sm'
@@ -17,7 +18,8 @@ const TagFilter = ({ tags, selectedTags, onTagToggle, onClearFilters }) => {
           <button
             key={tag}
             onClick={() => onTagToggle(tag)}
-            className={`tag-button text-sm px-4 py-1.5 rounded-full transition-all duration-200 border ${
+            aria-pressed={selectedTags.includes(tag)}
+            className={`tag-button text-sm px-4 py-1.5 rounded-full transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
               selectedTags.includes(tag)
                 ? 'bg-indigo-500 text-white border-transparent shadow-md shadow-indigo-200 transform scale-105'
                 : 'bg-white text-slate-600 border-slate-100 hover:border-indigo-200 hover:text-indigo-600'
@@ -50,7 +52,7 @@ const TagFilter = ({ tags, selectedTags, onTagToggle, onClearFilters }) => {
             ))}
             <button
               onClick={onClearFilters}
-              className="text-xs text-slate-400 hover:text-slate-600 ml-2 underline decoration-dashed underline-offset-2"
+              className="text-xs text-slate-400 hover:text-slate-600 ml-2 underline decoration-dashed underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded"
             >
               清除全部
             </button>
