@@ -1,6 +1,6 @@
 
 import Fuse from 'fuse.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
@@ -41,7 +41,7 @@ const App = () => {
     });
   }, [items]);
 
-  const filterData = () => {
+  const filterData = useCallback(() => {
     let result = items;
 
     if (searchQuery.trim()) {
@@ -57,12 +57,12 @@ const App = () => {
     }
 
     setFilteredData(result);
-  };
+  }, [items, searchQuery, selectedTags, fuse]);
 
   // Re-filter when search query or selected tags change
   useEffect(() => {
     filterData();
-  }, [searchQuery, selectedTags, items]);
+  }, [filterData, searchQuery, selectedTags, items]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
