@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { formatDate } from '../utils/formatDate';
 
 const ReportModal = ({ report, onClose }) => {
   // 按 Escape 关闭
@@ -13,15 +14,6 @@ const ReportModal = ({ report, onClose }) => {
       document.body.style.overflow = '';
     };
   }, [onClose]);
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
