@@ -1,22 +1,13 @@
 
-const ContentCard = ({ item }) => {
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+import { formatDate } from '../utils/formatDate';
 
+const ContentCard = ({ item }) => {
   return (
     <div className="waterfall-item group bg-white rounded-2xl overflow-hidden flex flex-col h-full border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100/50 hover:-translate-y-1 transition-all duration-300">
       <div className="p-5 flex-grow flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <span className="text-[10px] font-bold tracking-wider text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md uppercase">
-            {formatDate(item.created_time)}
+            {formatDate(item.created_time, { monthStyle: '2-digit', withTime: true })}
           </span>
           <a 
             href={item.original_url} 
