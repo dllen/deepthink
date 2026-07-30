@@ -23,12 +23,11 @@ jobs:
     - name: Install dependencies
       run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-    # No database decrypt or static data generation; use committed static-data.js/json directly
-
-    - name: Generate static data from web_content.db
-      run: npm run gen:static-js
-      env:
-        SQLITE_KEY: ${{ secrets.SQLITE_KEY }}
+    # Use committed static-data.js/json directly. In-CI regeneration requires
+    # sql.js + a database decrypt step, which were intentionally removed in
+    # 5c10e48 (see comment there). Re-enable only after fixing the install
+    # to use public registry (package-lock.json currently points to an
+    # internal registry that GH runners can't reach).
 
     - name: Build project
       run: npm run build
