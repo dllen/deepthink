@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "gen:static-js": "node scripts/generate-data.js --from-json"
+    "gen:static-js": "node scripts/generate-data.js",
+    "gen:static-js:from-json": "node scripts/generate-data.js --from-json"
   },
   "engines": {
     "node": ">=20.0.0"
