@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
-import JavaScriptObfuscator from 'javascript-obfuscator';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,17 +16,8 @@ const FROM_JSON = args.includes('--from-json');
 
 function writeJsModule(result) {
   const jsModule = `export default ${JSON.stringify(result)};`;
-  const obfuscated = JavaScriptObfuscator.obfuscate(jsModule, {
-    compact: true,
-    controlFlowFlattening: true,
-    controlFlowFlatteningThreshold: 0.75,
-    deadCodeInjection: false,
-    stringArray: true,
-    stringArrayThreshold: 1,
-    renameGlobals: false,
-  });
-  fs.writeFileSync(OUTPUT_JS_PATH, obfuscated.getObfuscatedCode());
-  console.log(`🔐 Obfuscated JS generated at: ${OUTPUT_JS_PATH}`);
+  fs.writeFileSync(OUTPUT_JS_PATH, jsModule);
+  console.log(`📦 static-data.js generated at: ${OUTPUT_JS_PATH}`);
 }
 
 async function generateFromJson() {
