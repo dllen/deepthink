@@ -25,6 +25,11 @@ jobs:
 
     # No database decrypt or static data generation; use committed static-data.js/json directly
 
+    - name: Generate static data from web_content.db
+      run: npm run gen:static-js
+      env:
+        SQLITE_KEY: ${{ secrets.SQLITE_KEY }}
+
     - name: Build project
       run: npm run build
 
