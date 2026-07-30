@@ -30,8 +30,17 @@ const ReportsPanel = () => {
           {staticReports.map((report) => (
             <div
               key={report.id}
-              className="group bg-white rounded-xl border border-slate-200 hover:border-amber-300 hover:shadow-lg hover:shadow-amber-50 transition-all duration-300 overflow-hidden cursor-pointer"
+              role="button"
+              tabIndex={0}
+              aria-label={`查看分析报告: ${report.title}`}
               onClick={() => setActiveReport(report)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveReport(report);
+                }
+              }}
+              className="group bg-white rounded-xl border border-slate-200 hover:border-amber-300 hover:shadow-lg hover:shadow-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 transition-all duration-300 overflow-hidden cursor-pointer"
             >
               {/* 卡片顶部色条 */}
               <div className="h-1.5 bg-gradient-to-r from-amber-400 to-orange-400 group-hover:from-amber-500 group-hover:to-orange-500 transition-colors" />
