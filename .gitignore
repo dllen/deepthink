@@ -73,6 +73,9 @@ htmlcov/
 src/assets/static-data*.json
 
 # Database files
+# NOTE: python_scripts/web_content.db{,.enc} are intentionally tracked
+# despite the *.db pattern below — the deploy workflow relies on them.
+# See AGENTS.md / dev.md "Database Content Security" for context.
 *.db
 *.sqlite
 *.sqlite3
