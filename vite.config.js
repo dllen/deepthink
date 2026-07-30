@@ -7,12 +7,5 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'react': ['react', 'react-dom'],
-        }
-      }
-    }
-  }
-})
+  },
+});
