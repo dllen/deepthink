@@ -34,8 +34,8 @@ const App = () => {
 
   const fuse = useMemo(() => {
     return new Fuse(items, {
-      keys: ['title', 'content', 'summary'],
-      threshold: 0.3,
+      keys: ['title', 'summary'],
+      threshold: 0.35,
       ignoreLocation: true,
       useExtendedSearch: true,
     });
