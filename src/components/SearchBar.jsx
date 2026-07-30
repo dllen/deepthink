@@ -12,6 +12,7 @@ const SearchBar = ({ searchQuery, onSearchChange, onClearSearch }) => {
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="搜索标题、内容或摘要..."
+          aria-label="搜索内容"
           className="block w-full pl-11 pr-12 py-3 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
         />
         {searchQuery && (
