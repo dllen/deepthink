@@ -6,7 +6,6 @@ import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import ReportsPanel from './components/ReportsPanel';
-import SQLiteReader from './utils/sqliteReader';
 import data from './assets/static-data.js';
 import logo from './assets/logo.svg';
 
@@ -19,43 +18,19 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadStaticData = async () => {
-      try {
-        if (data && data.length > 0) {
-          const reader = new SQLiteReader();
-          const extractedTags = reader.extractTags(data);
-          setItems(data);
-          setFilteredData(data);
-          setTags(extractedTags);
-          setIsLoading(false);
-          return;
-        }
-        readSQLiteData();
-      } catch (e) {
-        readSQLiteData();
-      }
-    };
-    
-    loadStaticData();
+    const allTags = new Set();
+    data.forEach((item) => {
+      if (!item.tags) return;
+      item.tags.split(',').forEach((t) => {
+        const trimmed = t.trim();
+        if (trimmed) allTags.add(trimmed);
+      });
+    });
+    setItems(data);
+    setFilteredData(data);
+    setTags(Array.from(allTags));
+    setIsLoading(false);
   }, []);
-
-  const readSQLiteData = async () => {
-    try {
-      const reader = new SQLiteReader();
-      const data = await reader.readData();
-      
-      const tags = reader.extractTags(data);
-
-      setItems(data);
-      setFilteredData(data);
-      setTags(tags);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error reading SQLite data:', error);
-      setIsLoading(false);
-    }
-
-  };
 
   const fuse = useMemo(() => {
     return new Fuse(items, {
