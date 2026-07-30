@@ -71,3 +71,17 @@ htmlcov/
  
 # Generated assets
 src/assets/static-data*.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Python virtual environments
+.venv/
+venv/
+*.egg-info/
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
