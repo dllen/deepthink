@@ -191,16 +191,31 @@ def insert_row(
     summary: str,
     tags: str,
     content: str = "",
+    update_content: bool = False,
 ) -> int | None:
     """Insert a row; ON CONFLICT(uid) DO NOTHING. Returns rowid or None.
 
     `content` is the full extracted page text — stored as a backup so the
     source body survives even if the URL goes offline. Capped at MAX_CONTENT_LEN.
+
+    When `update_content=True` and the row already exists, only the `content`
+    column is updated (title / summary / created_time / tags preserved).
     """
     cur = conn.cursor()
     body = (content or "").strip()
     if len(body) > MAX_CONTENT_LEN:
         body = body[:MAX_CONTENT_LEN] + "\n\n[…truncated at MAX_CONTENT_LEN]"
+    uid = uid_for(url)
+
+    if update_content:
+        cur.execute("UPDATE content_summary SET content = ? WHERE uid = ?", (body, uid))
+        if cur.rowcount > 0:
+            conn.commit()
+            cur.execute("SELECT id FROM content_summary WHERE uid = ?", (uid,))
+            row = cur.fetchone()
+            return row[0] if row else None
+        # Row didn't exist yet — fall through to insert
+
     cur.execute(
         "INSERT OR IGNORE INTO content_summary "
         "(title, created_time, summary, original_url, tags, uid, content) "
@@ -211,7 +226,7 @@ def insert_row(
             summary,
             url,
             tags,
-            uid_for(url),
+            uid,
             body,
         ),
     )
@@ -428,8 +443,9 @@ def insert_one(
     tags: str,
     *,
     label: str,
+    update_content: bool = False,
 ) -> bool:
-    """Fetch one URL, summarize, insert. Returns True if newly inserted."""
+    """Fetch one URL, summarize, insert. Returns True if newly inserted or updated."""
     print(f"\n→ {label} {url}")
     page = fetch_page(url)
     if page is None:
@@ -443,19 +459,34 @@ def insert_one(
         return False
 
     summary = make_summary(title, content)
-    row_id = insert_row(conn, url, title, summary, tags, content=content)
+    row_id = insert_row(conn, url, title, summary, tags, content=content, update_content=update_content)
     if row_id is None:
         print("   skip   : already in db (uid collision)")
         return False
-    print(f"   ✓ saved id={row_id}")
+    if update_content:
+        print(f"   ✓ updated id={row_id}")
+    else:
+        print(f"   ✓ saved id={row_id}")
     return True
 
 
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Crawler — append-only subpage fetcher")
+    parser.add_argument(
+        "--update-content",
+        action="store_true",
+        help="When a URL is already in the DB, update only the `content` "
+             "column instead of skipping. Useful for refreshing the backup "
+             "body without re-running DeepSeek on the summary.",
+    )
+    args = parser.parse_args()
+
     load_env(ENV_PATH)
 
     print("=" * 60)
-    print("Crawler (subpages) — append-only")
+    print(f"Crawler (subpages) — append-only{' [update-content]' if args.update_content else ''}")
     print("=" * 60)
     print(f"DB: {DB_PATH}  (will append, never wipe)")
 
@@ -474,7 +505,7 @@ def main() -> int:
             print(f"\n══════ ROOT  {root_url}  ══════")
 
             # 1) Insert the root page itself
-            inserted = insert_one(conn, root_url, root_tags, label="ROOT  ")
+            inserted = insert_one(conn, root_url, root_tags, label="ROOT  ", update_content=args.update_content)
             grand_inserted += int(bool(inserted))
             grand_skipped += int(not inserted)
 
@@ -490,7 +521,7 @@ def main() -> int:
             sub_tags = root_tags + ",subpage"
             for i, sub_url in enumerate(suburls, 1):
                 time.sleep(POLITE_PAUSE)
-                ok = insert_one(conn, sub_url, sub_tags, label=f"SUB   [{i:>2}/{len(suburls)}]")
+                ok = insert_one(conn, sub_url, sub_tags, label=f"SUB   [{i:>2}/{len(suburls)}]", update_content=args.update_content)
                 if ok:
                     grand_inserted += 1
                 else:

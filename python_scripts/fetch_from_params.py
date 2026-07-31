@@ -233,9 +233,51 @@ def save_to_db(conn, url: str, title: str, summary: str, tags: str, content: str
     return True
 
 
+def update_content_only(conn, url: str, content: str) -> bool:
+    """Update only the `content` column of an existing row by uid.
+
+    Used by the --backfill pass. Does NOT touch title / summary / created_time /
+    tags — those fields were already written by an earlier scrape and we
+    intentionally preserve the original DeepSeek summary.
+
+    Returns True if a row was updated, False if the URL is not in the DB.
+    """
+    cur = conn.cursor()
+    uid = uid_of(url)
+    cur.execute("SELECT 1 FROM content_summary WHERE uid = ?", (uid,))
+    if not cur.fetchone():
+        return False
+
+    body = (content or "").strip()
+    if len(body) > MAX_CONTENT_LEN:
+        body = body[:MAX_CONTENT_LEN] + "\n\n[…truncated at MAX_CONTENT_LEN]"
+    cur.execute(
+        "UPDATE content_summary SET content = ? WHERE uid = ?",
+        (body, uid),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Fetch URLs from grab_params.json → web_content.db")
+    parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help="Re-fetch every URL in grab_params.json and UPDATE only the "
+             "`content` column for rows that already exist in the DB. "
+             "Skips URL not yet in DB. Preserves summary, title, tags, "
+             "created_time, and done flag.",
+    )
+    args = parser.parse_args()
+
     print("=" * 60)
-    print("Fetch URLs from grab_params.json → web_content.db")
+    if args.backfill:
+        print("Backfill pass — re-fetching content for existing rows")
+    else:
+        print("Fetch URLs from grab_params.json → web_content.db")
     print("=" * 60)
     load_env_file(ENV_PATH)
     if os.getenv("DEEPSEEK_API_KEY"):
@@ -253,30 +295,54 @@ def main():
         print("✗ grab_params.json must be a list")
         return 1
 
-    pending = [it for it in items if not it.get("done", False)]
-    print(f"Total entries: {len(items)}, pending: {len(pending)}")
+    if args.backfill:
+        target = list(items)  # process ALL entries regardless of done flag
+        print(f"Total entries: {len(items)}, backfill target: {len(target)}")
+    else:
+        target = [it for it in items if not it.get("done", False)]
+        print(f"Total entries: {len(items)}, pending: {len(target)}")
 
-    if not pending:
+    if not target:
         print("Nothing to do.")
         return 0
 
     conn = sqlite3.connect(DB_PATH)
     ensure_schema(conn)
     inserted = 0
-    for i, item in enumerate(pending, start=1):
+    updated = 0
+    skipped = 0
+    for i, item in enumerate(target, start=1):
         url = item.get("url")
         tags = item.get("tags", "")
         if not url:
             print(f"[{i}] ⊘ Skipping entry without url")
             continue
-        print(f"\n[{i}/{len(pending)}] {url}")
+        print(f"\n[{i}/{len(target)}] {url}")
+
+        # Backfill: only update existing rows; skip URL not yet in DB
+        if args.backfill:
+            existing = conn.execute(
+                "SELECT 1 FROM content_summary WHERE uid = ?", (uid_of(url),)
+            ).fetchone()
+            if not existing:
+                print(f"  · Not in DB yet, skipping (run without --backfill to insert)")
+                skipped += 1
+                continue
 
         title, content = fetch_content(url)
         if not title and not content:
-            print(f"  ✗ No content fetched, leaving done=false")
+            print(f"  ✗ No content fetched")
             continue
 
-        # Check if URL is already in DB (regardless of content quality)
+        if args.backfill:
+            if update_content_only(conn, url, content):
+                print(f"  ✓ Updated content ({len(content.strip())} chars)")
+                updated += 1
+            else:
+                skipped += 1
+            continue
+
+        # Normal (non-backfill) path — preserve existing logic
         existing_uid = conn.execute(
             "SELECT 1 FROM content_summary WHERE uid = ?", (uid_of(url),)
         ).fetchone()
@@ -296,9 +362,12 @@ def main():
 
     conn.close()
 
-    with open(PARAMS_PATH, "w", encoding="utf-8") as f:
-        json.dump(items, f, indent=2, ensure_ascii=False)
-    print(f"\nDone. Inserted {inserted} new rows; updated grab_params.json")
+    if args.backfill:
+        print(f"\nDone. Updated {updated} rows, skipped {skipped} (not in DB).")
+    else:
+        with open(PARAMS_PATH, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, ensure_ascii=False)
+        print(f"\nDone. Inserted {inserted} new rows; updated grab_params.json")
     return 0
 
 
