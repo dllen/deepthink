@@ -145,7 +145,8 @@ CREATE TABLE IF NOT EXISTS content_summary (
     summary      TEXT    NOT NULL,
     original_url TEXT    NOT NULL,
     tags         TEXT,
-    uid          TEXT
+    uid          TEXT,
+    content      TEXT
 );
 CREATE TABLE IF NOT EXISTS manual_content (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -159,11 +160,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_uid  ON content_summary (uid);
 CREATE INDEX        IF NOT EXISTS idx_tags ON content_summary (tags);
 """
 
+MAX_CONTENT_LEN = 100_000  # cap per-row stored body to keep DB compact
+
 
 def ensure_schema(path: Path) -> sqlite3.Connection:
-    """Connect and make sure the schema exists. Never deletes rows."""
+    """Connect and make sure the schema exists. Never deletes rows.
+
+    Adds the `content` column to existing content_summary tables via
+    ALTER TABLE on subsequent runs (SQLite has no IF NOT EXISTS for columns).
+    """
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA_SQL)
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(content_summary)")
+    cols = [row[1] for row in cur.fetchall()]
+    if "content" not in cols:
+        cur.execute("ALTER TABLE content_summary ADD COLUMN content TEXT")
     conn.commit()
     return conn
 
@@ -178,13 +190,21 @@ def insert_row(
     title: str,
     summary: str,
     tags: str,
+    content: str = "",
 ) -> int | None:
-    """Insert a row; ON CONFLICT(uid) DO NOTHING. Returns rowid or None."""
+    """Insert a row; ON CONFLICT(uid) DO NOTHING. Returns rowid or None.
+
+    `content` is the full extracted page text — stored as a backup so the
+    source body survives even if the URL goes offline. Capped at MAX_CONTENT_LEN.
+    """
     cur = conn.cursor()
+    body = (content or "").strip()
+    if len(body) > MAX_CONTENT_LEN:
+        body = body[:MAX_CONTENT_LEN] + "\n\n[…truncated at MAX_CONTENT_LEN]"
     cur.execute(
         "INSERT OR IGNORE INTO content_summary "
-        "(title, created_time, summary, original_url, tags, uid) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "(title, created_time, summary, original_url, tags, uid, content) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
         (
             title,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -192,6 +212,7 @@ def insert_row(
             url,
             tags,
             uid_for(url),
+            body,
         ),
     )
     conn.commit()
@@ -422,7 +443,7 @@ def insert_one(
         return False
 
     summary = make_summary(title, content)
-    row_id = insert_row(conn, url, title, summary, tags)
+    row_id = insert_row(conn, url, title, summary, tags, content=content)
     if row_id is None:
         print("   skip   : already in db (uid collision)")
         return False
