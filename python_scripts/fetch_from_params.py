@@ -50,10 +50,17 @@ HEADERS = {
 }
 
 MIN_CONTENT_LEN = 80
+MAX_CONTENT_LEN = 100_000  # cap per-row stored body to keep DB compact
 
 
 def ensure_schema(conn):
-    """Create content_summary table + uid dedup index if missing."""
+    """Create content_summary table + uid dedup index if missing.
+
+    Schema (current):
+        id, title, created_time, summary, original_url, tags, uid, content
+    The `content` column holds the full extracted page text as a backup
+    so we don't lose the source if the URL goes offline.
+    """
     cur = conn.cursor()
     cur.execute(
         """
@@ -64,7 +71,8 @@ def ensure_schema(conn):
             summary TEXT NOT NULL,
             original_url TEXT NOT NULL,
             tags TEXT,
-            uid TEXT
+            uid TEXT,
+            content TEXT
         )
         """
     )
@@ -72,6 +80,8 @@ def ensure_schema(conn):
     cols = [row[1] for row in cur.fetchall()]
     if "uid" not in cols:
         cur.execute("ALTER TABLE content_summary ADD COLUMN uid TEXT")
+    if "content" not in cols:
+        cur.execute("ALTER TABLE content_summary ADD COLUMN content TEXT")
     cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_uid ON content_summary (uid)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_tags ON content_summary (tags)")
     conn.commit()
@@ -193,8 +203,12 @@ def generate_summary(title: str, content: str) -> str:
     return summary
 
 
-def save_to_db(conn, url: str, title: str, summary: str, tags: str) -> bool:
-    """Insert into content_summary, dedup by uid. Returns True if inserted."""
+def save_to_db(conn, url: str, title: str, summary: str, tags: str, content: str = "") -> bool:
+    """Insert into content_summary, dedup by uid. Returns True if inserted.
+
+    `content` is the full extracted page text — stored as a backup so the
+    source body survives even if the URL goes offline. Capped at MAX_CONTENT_LEN.
+    """
     cur = conn.cursor()
     uid = uid_of(url)
     cur.execute("SELECT id FROM content_summary WHERE uid = ?", (uid,))
@@ -202,16 +216,20 @@ def save_to_db(conn, url: str, title: str, summary: str, tags: str) -> bool:
         print(f"  · Already in DB (uid: {uid}), skipping")
         return False
 
+    body = (content or "").strip()
+    if len(body) > MAX_CONTENT_LEN:
+        body = body[:MAX_CONTENT_LEN] + "\n\n[…truncated at MAX_CONTENT_LEN]"
+
     created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute(
         """
-        INSERT INTO content_summary (title, created_time, summary, original_url, tags, uid)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO content_summary (title, created_time, summary, original_url, tags, uid, content)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (title, created_time, summary, url, tags, uid),
+        (title, created_time, summary, url, tags, uid, body),
     )
     conn.commit()
-    print(f"  ✓ Saved id={cur.lastrowid}")
+    print(f"  ✓ Saved id={cur.lastrowid} (body {len(body)} chars)")
     return True
 
 
@@ -272,7 +290,7 @@ def main():
             continue
 
         summary = generate_summary(title, content)
-        if save_to_db(conn, url, title, summary, tags):
+        if save_to_db(conn, url, title, summary, tags, content=content):
             inserted += 1
             item["done"] = True
 
