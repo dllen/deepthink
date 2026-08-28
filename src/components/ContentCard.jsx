@@ -1,14 +1,23 @@
 
 import { formatDate } from '../utils/formatDate';
+import { getCategoryStyle } from '../utils/categories';
 
 const ContentCard = ({ item }) => {
+  const catStyle = getCategoryStyle(item.category);
   return (
     <div className="waterfall-item group bg-white rounded-2xl overflow-hidden flex flex-col h-full border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100/50 hover:-translate-y-1 transition-all duration-300">
       <div className="p-5 flex-grow flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] font-bold tracking-wider text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md uppercase">
-            {formatDate(item.created_time, { monthStyle: '2-digit', withTime: true })}
-          </span>
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {item.category && (
+              <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md ring-1 ${catStyle.badge}`}>
+                {item.category}
+              </span>
+            )}
+            <span className="text-[10px] font-medium tracking-wider text-slate-500 bg-slate-50 px-2 py-1 rounded-md truncate">
+              {formatDate(item.created_time, { monthStyle: '2-digit', withTime: true })}
+            </span>
+          </div>
           <a 
             href={item.original_url} 
             target="_blank" 

@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
+import CategoryFilter from './components/CategoryFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import ReportsPanel from './components/ReportsPanel';
+import { CATEGORIES } from './utils/categories';
 import data from './assets/static-data.js';
 import logo from './assets/logo.svg';
 
@@ -14,8 +16,10 @@ const App = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [categoryCounts, setCategoryCounts] = useState({});
 
   useEffect(() => {
     const allTags = new Set();
@@ -26,9 +30,14 @@ const App = () => {
         if (trimmed) allTags.add(trimmed);
       });
     });
+    const counts = {};
+    data.forEach((item) => {
+      if (item.category) counts[item.category] = (counts[item.category] || 0) + 1;
+    });
     setItems(data);
     setFilteredData(data);
     setTags(Array.from(allTags));
+    setCategoryCounts(counts);
     setIsLoading(false);
   }, []);
 
@@ -44,9 +53,14 @@ const App = () => {
   const filterData = useCallback(() => {
     let result = items;
 
+    if (selectedCategory) {
+      result = result.filter(item => item.category === selectedCategory);
+    }
+
     if (searchQuery.trim()) {
       const searchResults = fuse.search(searchQuery);
-      result = searchResults.map(r => r.item);
+      const idSet = new Set(searchResults.map(r => r.item.id));
+      result = result.filter(item => idSet.has(item.id));
     }
 
     if (selectedTags.length > 0) {
@@ -57,12 +71,12 @@ const App = () => {
     }
 
     setFilteredData(result);
-  }, [items, searchQuery, selectedTags, fuse]);
+  }, [items, searchQuery, selectedTags, selectedCategory, fuse]);
 
-  // Re-filter when search query or selected tags change
+  // Re-filter when search query, tags, or category change
   useEffect(() => {
     filterData();
-  }, [filterData, searchQuery, selectedTags, items]);
+  }, [filterData, searchQuery, selectedTags, selectedCategory, items]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
@@ -121,11 +135,20 @@ const App = () => {
           />
         </div>
 
-        {/* 标签筛选器 */}
+        {/* 分类筛选器（七大类单选） */}
+        <div className="mb-4 sticky top-24 z-40">
+          <CategoryFilter
+            selectedCategory={selectedCategory}
+            onCategorySelect={setSelectedCategory}
+            counts={categoryCounts}
+          />
+        </div>
+
+        {/* 标签筛选器（次级，多选） */}
         <div className="mb-8 sticky top-24 z-40">
-          <TagFilter 
-            tags={tags} 
-            selectedTags={selectedTags} 
+          <TagFilter
+            tags={tags}
+            selectedTags={selectedTags}
             onTagToggle={toggleTag}
             onClearFilters={clearFilters}
           />
@@ -152,7 +175,7 @@ const App = () => {
             </div>
             <h3 className="text-xl font-semibold text-slate-900">没有找到匹配的内容</h3>
             <p className="mt-2 text-slate-500 max-w-sm mx-auto">
-              尝试选择不同的标签，或者清除当前的筛选条件重新开始
+              尝试选择不同的分类或标签，或者清除当前的筛选条件重新开始
             </p>
             <button
               onClick={clearFilters}
