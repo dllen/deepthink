@@ -64,6 +64,38 @@ ROOT_URLS: list[dict] = [
         "url": "https://lixiaolai.com/",
         "tags": "lixiaolai",
     },
+    {
+        # vibecodinghub: HTML 渲染的镜像，<title>  和 <h1  > 都含本期标题；body 在 article。
+        # 只跟进 /issue/<N 路径，过滤掉 /category /about 等导航页。
+        "url": "https://ruanyf-weekly.vibecodinghub.org/",
+        "tags": "vibecodinghub,ruanyifeng,weekly",
+        "title_selector": "h1",
+        "content_selectors": ["article", ".issue-content", ".prose", "main"],
+        "link_pattern": r"/issue/\d+",
+    },
+    {
+        # GitHub Issues 列表：读者自荐（开源自荐、文章自荐、工具推荐等）。
+        # ponytail: 默认只看 OPEN 状态；closed 历史要全量可再手添带 q=is:issue+state:closed 的变体。
+        # 标题在 bdi.js-issue-title；正文在 .markdown-body（首页 <h1> 顺带会拼上 #issueId，但 bdi 干净）。
+        # 只跟进纯 issues/<id> 链接，过滤分页/筛选 chip。
+        "url": "https://github.com/ruanyf/weekly/issues",
+        "tags": "github-issues,ruanyifeng,weekly",
+        # GitHub SPA 渲染的 issue 页，bdi.js-issue-title 不一定存在；直接用 <title> 后剥掉 " · Issue #NNN · ... · GitHub" 后缀。
+        "title_selector": "title",
+        "title_strip": r"\s*·\s*Issue\s*#\d+.*$",
+        "content_selectors": ["[data-testid=\"issue-body\"]", ".markdown-body"],
+        "link_pattern": r"/ruanyf/weekly/issues/\d+$",
+    },
+    {
+        # GitHub blob 视图：<title  > 是 "repo/path at master · repo · GitHub"，没有用。
+        # 真正标题在 .markdown-body 里的第一个 <h1  >；正文也在 .markdown-body。
+        # 只跟进 issue markdown 页面，避开市场页/导航。master/main 两个分支都容许。
+        "url": "https://github.com/ruanyf/weekly",
+        "tags": "github,ruanyifeng,weekly",
+        "title_selector": ".markdown-body h1",
+        "content_selectors": [".markdown-body", "article"],
+        "link_pattern": r"/ruanyf/weekly/blob/(?:master|main)/docs/issue-\d+\.md$",
+    },
 ]
 
 MAX_SUBPAGES_PER_ROOT = 30
@@ -251,8 +283,12 @@ CONTENT_SELECTORS = [
 ]
 
 
-def extract_main_text(soup: BeautifulSoup) -> str:
-    for selector in CONTENT_SELECTORS:
+def extract_main_text(
+    soup: BeautifulSoup,
+    *,
+    selectors: list[str] | None = None,
+) -> str:
+    for selector in (selectors or CONTENT_SELECTORS):
         el = soup.select_one(selector)
         if el:
             text = el.get_text(" ", strip=True)
@@ -268,7 +304,18 @@ def extract_main_text(soup: BeautifulSoup) -> str:
     return soup.get_text(" ", strip=True)
 
 
-def extract_title(soup: BeautifulSoup, url: str) -> str:
+def extract_title(
+    soup: BeautifulSoup,
+    url: str,
+    *,
+    selector: str | None = None,
+) -> str:
+    if selector:
+        el = soup.select_one(selector)
+        if el:
+            t = el.get_text(strip=True)
+            if t:
+                return t
     if soup.title and soup.title.string:
         t = soup.title.string.strip()
         if t:
@@ -281,7 +328,21 @@ def extract_title(soup: BeautifulSoup, url: str) -> str:
     return urlparse(url).netloc or url
 
 
-def fetch_page(url: str) -> tuple[str, str, BeautifulSoup] | None:
+def _root_config_for(url: str) -> dict:
+    """Return the first ROOT_URLS entry whose netloc matches `url`'s netloc.
+
+    Used to inherit per-source extraction overrides (selectors, link_pattern)
+    for sub-URLs that don't carry their own config.
+    """
+    host = _normalize_host(urlparse(url).netloc)
+    for r in ROOT_URLS:
+        rh = _normalize_host(urlparse(r["url"]).netloc)
+        if rh == host:
+            return r
+    return {}
+
+
+def fetch_page(url: str, *, root: dict | None = None) -> tuple[str, str, BeautifulSoup] | None:
     """Fetch a URL and return (title, plain_text, soup) — or None on failure."""
     try:
         resp = requests.get(
@@ -302,8 +363,12 @@ def fetch_page(url: str) -> tuple[str, str, BeautifulSoup] | None:
     for tag in soup(["script", "style", "noscript", "iframe", "svg"]):
         tag.decompose()
 
-    title = extract_title(soup, resp.url or url)
-    content = extract_main_text(soup)
+    cfg = root if root is not None else _root_config_for(url)
+    title = extract_title(soup, resp.url or url, selector=cfg.get("title_selector"))
+    strip_pat = cfg.get("title_strip")
+    if strip_pat:
+        title = re.sub(strip_pat, "", title).strip()
+    content = extract_main_text(soup, selectors=cfg.get("content_selectors"))
     content = re.sub(r"\s+", " ", content).strip()
     return title, content, soup
 
@@ -349,11 +414,18 @@ def discover_suburls(
     root_url: str,
     soup: BeautifulSoup,
     cap: int = MAX_SUBPAGES_PER_ROOT,
+    link_pattern: str | None = None,
 ) -> list[str]:
-    """Pull all internal links from `soup`, normalize and dedupe, exclude root."""
+    """Pull all internal links from `soup`, normalize and dedupe, exclude root.
+
+    `link_pattern`: optional regex string — when set, only links whose absolute
+    URL matches `re.search(link_pattern, absolute)` are kept. Use `\\Z` or `$`
+    to anchor to end of URL.
+    """
     root_norm = root_url.rstrip("/")
     candidates: list[str] = []
     seen: set[str] = set()
+    pat = re.compile(link_pattern) if link_pattern else None
 
     for a in soup.find_all("a", href=True):
         href = a.get("href")
@@ -365,6 +437,8 @@ def discover_suburls(
         if absolute.rstrip("/") == root_norm:
             continue
         if not is_same_site(absolute, root_url):
+            continue
+        if pat and not pat.search(absolute):
             continue
         if absolute in seen:
             continue
@@ -444,10 +518,15 @@ def insert_one(
     *,
     label: str,
     update_content: bool = False,
+    root: dict | None = None,
 ) -> bool:
-    """Fetch one URL, summarize, insert. Returns True if newly inserted or updated."""
+    """Fetch one URL, summarize, insert. Returns True if newly inserted or updated.
+
+    `root`: optional ROOT_URLS entry — when set, its title_selector /
+    content_selectors overrides are used for extraction.
+    """
     print(f"\n→ {label} {url}")
-    page = fetch_page(url)
+    page = fetch_page(url, root=root)
     if page is None:
         return False
     title, content, _ = page
@@ -505,23 +584,34 @@ def main() -> int:
             print(f"\n══════ ROOT  {root_url}  ══════")
 
             # 1) Insert the root page itself
-            inserted = insert_one(conn, root_url, root_tags, label="ROOT  ", update_content=args.update_content)
+            inserted = insert_one(conn, root_url, root_tags, label="ROOT  ", update_content=args.update_content, root=root)
             grand_inserted += int(bool(inserted))
             grand_skipped += int(not inserted)
 
             # 2) Discover same-domain sub-URLs from the root page
-            page = fetch_page(root_url)
+            page = fetch_page(root_url, root=root)
             if page is None:
                 grand_failed += 1
                 continue
             _title, _content, root_soup = page
 
-            suburls = discover_suburls(root_url, root_soup)
+            suburls = discover_suburls(
+                root_url,
+                root_soup,
+                link_pattern=root.get("link_pattern"),
+            )
             print(f"\n   discovered {len(suburls)} candidate sub-URL(s)")
             sub_tags = root_tags + ",subpage"
             for i, sub_url in enumerate(suburls, 1):
                 time.sleep(POLITE_PAUSE)
-                ok = insert_one(conn, sub_url, sub_tags, label=f"SUB   [{i:>2}/{len(suburls)}]", update_content=args.update_content)
+                ok = insert_one(
+                    conn,
+                    sub_url,
+                    sub_tags,
+                    label=f"SUB   [{i:>2}/{len(suburls)}]",
+                    update_content=args.update_content,
+                    root=root,
+                )
                 if ok:
                     grand_inserted += 1
                 else:
