@@ -96,6 +96,44 @@ ROOT_URLS: list[dict] = [
         "content_selectors": [".markdown-body", "article"],
         "link_pattern": r"/ruanyf/weekly/blob/(?:master|main)/docs/issue-\d+\.md$",
     },
+    # ------------------------------------------------------------------
+    # 热搜 / 聚合类信息源头（多平台热榜）。
+    # 注意：这些多为 JS 渲染的 SPA 热榜页，纯 requests 可能只拿到空壳 HTML
+    # （正文 < MIN_CONTENT_LEN 会被跳过）；且热榜链接指向站外平台，
+    # is_same_site 过滤后不会跟进子页。若抓到空壳，需换 browser_scraper
+    # 或逐站补 title_selector/content_selectors。
+    # ------------------------------------------------------------------
+    {
+        # NewsNow 多平台聚合：知乎/微博/B站/虎扑/V2EX 一站看全。
+        "url": "https://newsnow.busiyi.world/",
+        "tags": "聚合,热搜,newsnow",
+    },
+    {
+        # SoPilot：专盯 X 爆款帖子与舆论风向。
+        "url": "https://sopilot.net/zh/hot-tweets",
+        "tags": "聚合,X,热搜,sopilot",
+    },
+    {
+        # 今日热榜：含 GitHub Trending / Product Hunt / Hacker News。
+        "url": "https://tophub.today/c/tech",
+        "tags": "聚合,热搜,技术,tophub",
+    },
+    {
+        # 英为财情：全球行情（A股/港股/美股/外汇/大宗商品）。
+        "url": "https://www.investing.com/",
+        "tags": "财经,行情,投资,investing",
+    },
+    {
+        # 萝卜投研（通联数据）：AI 驱动的智能投研平台（研报/知识图谱/财务模型）。
+        # 官网是 robo.datayes.com —— luobo.cn 是「保卫萝卜」手游，勿混。
+        "url": "https://robo.datayes.com/",
+        "tags": "投研,AI,研报,robo",
+    },
+    {
+        # REBANG：50+ 平台热搜聚合，极简无广告。
+        "url": "https://rebang.open2hub.com/",
+        "tags": "聚合,热搜,rebang",
+    },
 ]
 
 MAX_SUBPAGES_PER_ROOT = 30

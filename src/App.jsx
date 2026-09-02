@@ -7,7 +7,7 @@ import TagFilter from './components/TagFilter';
 import CategoryFilter from './components/CategoryFilter';
 import WaterfallGrid from './components/WaterfallGrid';
 import ReportsPanel from './components/ReportsPanel';
-import { CATEGORIES } from './utils/categories';
+import LinksPanel from './components/LinksPanel';
 import data from './assets/static-data.js';
 import logo from './assets/logo.svg';
 
@@ -125,6 +125,9 @@ const App = () => {
         
         {/* 分析报告栏目 */}
         <ReportsPanel />
+
+        {/* 信息源头栏目 */}
+        <LinksPanel />
 
         {/* 搜索栏 */}
         <div className="mb-6">
