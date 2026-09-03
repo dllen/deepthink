@@ -94,3 +94,5 @@ pip-delete-this-directory.txt
 # package-lock.json would re-pin internal registry URLs that GH
 # runners cannot reach.
 package-lock.json
+
+.superpowers/
