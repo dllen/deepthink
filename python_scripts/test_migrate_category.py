@@ -237,14 +237,60 @@ def test_classify_missing_failure_keeps_null(tmp_path):
     classified, failed = migrate_category.classify_missing(conn, client=client)
     conn.commit()
     row = conn.execute(
-        "SELECT category FROM content_summary WHERE original_url='https://e.com/new'"
+        "SELECT category, category_source FROM content_summary "
+        "WHERE original_url='https://e.com/new'"
     ).fetchone()
     conn.close()
 
     assert classified == 0
     assert failed > 0
-    assert row[0] is None
+    assert row == (None, None)  # category_source 也不能残留列默认值 'default'
     assert client.calls == 2  # 整批失败后重试了一次
+
+
+def test_classify_missing_creates_client_for_retry(tmp_path, monkeypatch):
+    """生产路径不传 client：classify_missing 内部创建，重试守卫必须生效。"""
+    db, _ = migrated_db(tmp_path)
+    client = StubClient("这不是 JSON")  # 每次 create 都返回坏 JSON
+    make_calls = {"n": 0}
+
+    def fake_make_client():
+        make_calls["n"] += 1
+        return client
+
+    monkeypatch.setattr(migrate_category, "make_client", fake_make_client)
+
+    conn = sqlite3.connect(db)
+    classified, failed = migrate_category.classify_missing(conn)  # 不传 client
+    conn.commit()
+    row = conn.execute(
+        "SELECT category, category_source FROM content_summary "
+        "WHERE original_url='https://e.com/new'"
+    ).fetchone()
+    conn.close()
+
+    assert make_calls["n"] == 1  # 只创建一次，重试复用同一个 client
+    assert client.calls == 2  # 首次 + 重试 1 次
+    assert (classified, failed) == (0, 1)
+    assert row == (None, None)
+
+
+def test_failed_rows_report_as_empty_source(tmp_path, monkeypatch):
+    db = tmp_path / "test.db"
+    site = tmp_path / "static-data.js"
+    make_db(db)
+    write_site_js(site)
+    monkeypatch.setattr(migrate_category, "make_client", lambda: None)
+    monkeypatch.setattr(
+        migrate_category, "classify_batch",
+        lambda items, client=None: [None] * len(items),
+    )
+
+    report = run_migration(db, site)  # 无 key 且分类全失败，不允许兜底
+
+    assert report["classify_failed"] == 1
+    assert report["sources"].get("default", 0) == 0  # 失败行不再算作 default
+    assert report["sources"].get("(空)") == 1
 
 
 def test_classify_missing_allow_fallback(tmp_path):
@@ -273,6 +319,7 @@ def test_main_returns_2_on_classify_failure(tmp_path, monkeypatch, capsys):
     make_db(db)
     write_site_js(site)
     monkeypatch.setattr(migrate_category, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(migrate_category, "make_client", lambda: None)
     monkeypatch.setattr(
         migrate_category, "classify_batch",
         lambda items, client=None: [None] * len(items),

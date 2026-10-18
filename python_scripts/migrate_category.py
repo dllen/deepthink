@@ -18,7 +18,12 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from category_classifier import CATEGORIES, DEFAULT_CATEGORY, classify_batch
+from category_classifier import (
+    CATEGORIES,
+    DEFAULT_CATEGORY,
+    classify_batch,
+    make_client,
+)
 
 BASE = Path(__file__).resolve().parent
 DB_PATH = BASE / "web_content.db"
@@ -137,6 +142,9 @@ def classify_missing(
     失败行默认保留 NULL（下次重跑可重试），只有 allow_fallback=True 才写默认分类。
     返回 (成功条数, 失败条数)。
     """
+    # 生产路径 main→run_migration 都不传 client；在这里兜底创建，
+    # 否则下面的重试守卫会因 client is None 永不生效。
+    client = client or make_client()
     rows = list(
         conn.execute(
             "SELECT id, title, summary FROM content_summary "
@@ -163,7 +171,13 @@ def classify_missing(
                         "UPDATE content_summary SET category=?, category_source='default' WHERE id=?",
                         (DEFAULT_CATEGORY, row_id),
                     )
-                # allow_fallback=False 时不动该行，category 保持 NULL 以便重跑重试
+                else:
+                    # category_source 的列默认值是 'default'；必须显式清空，
+                    # 否则失败行会被报告误算成兜底分类。
+                    conn.execute(
+                        "UPDATE content_summary SET category=NULL, category_source=NULL WHERE id=?",
+                        (row_id,),
+                    )
                 failed += 1
     return classified, failed
 
