@@ -72,6 +72,9 @@ htmlcov/
 # Generated assets
 src/assets/static-data*.json
 
+# One-off migration backups and reports (local only)
+python_scripts/backups/
+
 # Database files
 # NOTE: python_scripts/web_content.db{,.enc} are intentionally tracked
 # despite the *.db pattern below — the deploy workflow relies on them.
