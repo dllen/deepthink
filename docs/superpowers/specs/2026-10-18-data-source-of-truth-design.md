@@ -67,7 +67,7 @@ ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default';
 | `manual` | 人工标注（`set_category.py` 或历史手工分类） | 否 |
 | `llm` | LLM 分类结果 | 否（只在 NULL 时写入） |
 | `legacy-default` | 2026-08 引入七分类时批量默认的「文章」 | 否 |
-| `default` | LLM 不可用时的兜底「文章」 | 否（LLM 任务只处理 NULL，重跑需人工把该行 `category` 置回 NULL） |
+| `default` | 迁移/入库分类失败时的兜底「文章」（迁移中仅在显式 `--allow-fallback` 时写入） | 否（LLM 任务只处理 NULL；重跑需先清空该行） |
 
 不加 `CHECK` 约束：SQLite 对 `ALTER TABLE ADD COLUMN` 的约束能力有限，校验放在生成器与 CI。
 
@@ -80,13 +80,13 @@ ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default';
 按优先级执行，幂等：
 
 1. **保留现有分类**：从 `static-data.js` 建立 `original_url → category` 映射（143 条）。命中 DB 的行写入 `category`，其中 32 条手工分类记 `manual`，其余（103 条旧文）记 `legacy-default`。
-2. **补齐缺失**：DB 中 `category IS NULL` 的行（约 89 条 8 月内容）用 DeepSeek 分类，记 `llm`。按每批 10 条（标题 + 摘要）请求，要求返回 JSON 数组，校验只含七类之一；单条失败重试一次，仍失败落「文章」+ `default` 并在报告计数。
+2. **补齐缺失**：DB 中 `category IS NULL` 的行（约 89 条 8 月内容）用 DeepSeek 分类，记 `llm`。按每批 10 条（标题 + 摘要）请求，要求返回 JSON 数组，校验只含七类之一；整批失败且拿到 client 时重试一次。仍失败的行**保持 `category=NULL`、`category_source=NULL`**，计入 `classify_failed`，迁移随后返回非 0——修复 key/网络后重跑即可重试；只有显式 `--allow-fallback` 才写「文章」+ `default`。
 3. **人工修正**：`python_scripts/set_category.py <url|id> <分类>` 写入 `manual`。以后任何分类任务只处理 `category IS NULL` 的行，不覆盖已有值。
 4. **新内容入库时分类**：`fetch_from_params.py` 的 `save_to_db()` 与 `crawler_subpages.py` 的 `insert_row()` 在写入前调用 `category_classifier.classify_one(title, summary)`，写入 `category` 与 `category_source`（成功 `llm`，失败 `default`）。已有行的 `update_content` 路径不改分类。
 
 七类枚举：科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论（与 `src/utils/categories.js` 保持一致）。
 
-LLM 不可用时（未安装 `openai`、未配置 `DEEPSEEK_API_KEY`、网络失败）不阻断迁移，全部落「文章」+ `default`，报告里给出数量，可稍后重跑 `--classify-only`。
+LLM 不可用时（未安装 `openai`、未配置 `DEEPSEEK_API_KEY`、网络失败）：迁移**不静默兜底**——失败行保持 NULL、返回非 0 并提示修复后重跑（`--allow-fallback` 可显式接受「文章」兜底）。入库路径不同：为不阻塞抓取且保证站点可构建，`save_to_db`/`insert_row` 分类失败时落「文章」+ `default`（后续可对这些行重跑分类）。
 
 ### 4.3 32 条手工内容补录
 
@@ -165,9 +165,9 @@ id 13–17、30–32 共 8 条只存在于 `static-data.js`、DB 中已删除。
 
 ## 10. 验收标准
 
-- DB 224 行；`category` 覆盖 100%；迁移报告包含 source 分布与 LLM 失败数。
+- DB 224 行；`category` 覆盖 100%；迁移报告包含 source 分布与 LLM 失败数；apply 模式下 `classify_failed` 必须为 0 且退出码 0（失败则退出码 2、失败行保持 NULL，修复后重跑）。
 - 生成物 224 条；`id` 唯一；`created_time` 全部可解析；无 DB 中不存在的 URL。
-- `npm run check:data`、`node --test`、`npm run build`、`npm run lint` 全部通过。
+- `npm run check:data`、`npm run test:data`、`npm run build` 通过；`npm run lint` 不新增错误（已知 3 个 error 属 S2）。
 - 生成器对三类坏输入有单测并通过：缺分类、重复 id、断崖缩水。
 - 抓取入库路径的新条目在模拟分类器下能写入 `category`/`category_source`（单测覆盖）；分类器不可用时落「文章」+ `default`。
 - 线上站点显示 224 条；分类计数与 DB 分布一致；搜索"英伟达财报"不再多出卡片。

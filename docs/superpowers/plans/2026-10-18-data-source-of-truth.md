@@ -1017,6 +1017,8 @@ git commit -m "feat(data): add one-off category migration script"
 ---
 
 > **执行记录（2026-10-18）**：实现时发现计划代码里 `insert_manual_items` 的 `existing_urls.add(url)` 会让「同 URL 不同标题」的第二条被跳过，与本节测试 `inserted_manual == 2` 矛盾；已删除该行，仅用 `existing_uids` 判重（同 URL 不同 title 时 uid 用 `md5(url|title)` 区分）。其余与计划一致，测试 3 passed。提交 `7d80d12`。
+>
+> **执行记录（2026-10-18，代码审查后）**：LLM 失败不再静默写「文章」+`default`。新行为：失败行保持 `category=NULL`、`category_source=NULL`，批内全失败且拿到 client 时重试一次；apply 模式下 `classify_failed > 0` 且未加 `--allow-fallback` 时 stderr 告警并返回 **2**；`--allow-fallback` 才写兜底。另补 rollback / dry-run / LLM 成功失败 / 退出码等测试。提交 `e695e31`、`37c29267` 后续修复。
 
 ## Task 5: 执行迁移（dry-run → 正式）
 
@@ -1044,11 +1046,14 @@ Expected（关键字段）：
 
 Run: `cd python_scripts && python3 migrate_category.py`
 Expected：
+- 退出码 **0**（有可用 DEEPSEEK_API_KEY 时）
 - `"mode": "apply"`，`"inserted_manual": 32`，`"total_rows": 224`
-- `"classified"` + `"classify_failed"` = 89
+- `"classified"` + `"classify_failed"` = 89，且 **`"classify_failed": 0`**
 - `"category_coverage": 224`
 - `distribution` 中七类之和 = 224
 - 备份与报告路径打印出来
+
+若退出码为 **2**（分类失败且未加 `--allow-fallback`）：失败行保持 NULL，报告里 `classify_failed` > 0。此时**停止后续步骤**，先确认 `DEEPSEEK_API_KEY` 与网络，再重跑同一命令（幂等，只补 NULL 行）；不要用 `--allow-fallback` 掩盖问题。
 
 - [ ] **Step 4: 核对数据**
 
