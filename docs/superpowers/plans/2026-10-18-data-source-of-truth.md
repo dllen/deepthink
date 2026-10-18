@@ -881,7 +881,8 @@ def insert_manual_items(conn, site_items) -> int:
                 "manual",
             ),
         )
-        existing_urls.add(url)
+        # 注意：不要把 url 加入 existing_urls——同一 URL 可对应不同标题的两条内容，
+        # 是否重复由 uid（md5(url) 或 md5(url|title)）判定。
         existing_uids.add(uid)
         inserted += 1
     return inserted
@@ -1014,6 +1015,8 @@ git commit -m "feat(data): add one-off category migration script"
 ```
 
 ---
+
+> **执行记录（2026-10-18）**：实现时发现计划代码里 `insert_manual_items` 的 `existing_urls.add(url)` 会让「同 URL 不同标题」的第二条被跳过，与本节测试 `inserted_manual == 2` 矛盾；已删除该行，仅用 `existing_uids` 判重（同 URL 不同 title 时 uid 用 `md5(url|title)` 区分）。其余与计划一致，测试 3 passed。提交 `7d80d12`。
 
 ## Task 5: 执行迁移（dry-run → 正式）
 
