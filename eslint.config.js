@@ -30,7 +30,7 @@ export default [
   },
   // Node scripts (build tooling)
   {
-    files: ['scripts/**/*.js', 'eslint.config.js'],
+    files: ['scripts/**/*.js', 'scripts/**/*.mjs', 'eslint.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

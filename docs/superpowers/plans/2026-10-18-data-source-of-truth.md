@@ -225,6 +225,8 @@ git commit -m "feat(data): add shared validation rules for dataset generation"
 
 ---
 
+> **执行记录（2026-10-18）**：本节代码在执行时做了以下增强，均已通过两轮审查：缩水阈值变量改名 `minRows`（保留 `Math.ceil`）；URL 去重并入主循环（null 行不再崩溃）；`compareDatasets` 增加非数组守卫；补充 4 个边界测试；`eslint.config.js` 的 Node globals 扩到 `scripts/**/*.mjs`。最终提交 `a5bd185` + `fa78f4f`。
+
 ## Task 2: Python 七分类分类器
 
 **Files:**
@@ -1444,10 +1446,15 @@ async function main() {
   const published = readPublished(JS_PATH);
   const publishedJson = JSON.parse(fs.readFileSync(JSON_PATH, 'utf-8'));
 
-  const errors = [];
-  const rowCheck = validateRows(dbRows);
-  errors.push(...rowCheck.errors);
-  errors.push(...compareDatasets(dbRows, published).errors);
+  const dbCheck = validateRows(dbRows);
+  const pubCheck = validateRows(published);
+  const errors = [...dbCheck.errors, ...pubCheck.errors];
+  for (const warning of [...dbCheck.warnings, ...pubCheck.warnings]) {
+    console.warn(`⚠️  ${warning}`);
+  }
+  if (dbCheck.ok && pubCheck.ok) {
+    errors.push(...compareDatasets(dbRows, published).errors);
+  }
 
   const jsonVsJs = JSON.stringify(publishedJson) === JSON.stringify(published);
   if (!jsonVsJs) errors.push('static-data.json 与 static-data.js 内容不一致');
