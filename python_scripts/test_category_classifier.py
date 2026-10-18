@@ -88,3 +88,57 @@ def test_prompt_contains_all_categories():
     for category in CATEGORIES:
         assert category in client.chat.completions.last_kwargs["messages"][0]["content"]
     assert "a" in user_msg
+
+
+def test_batch_parses_uppercase_json_fence():
+    payload = '```JSON\n[{"index": 0, "category": "工具"}]\n```'
+    out = classify_batch([{"title": "a"}], client=FakeClient(payload))
+    assert out == ["工具"]
+
+
+def test_batch_parses_fence_after_explanation():
+    payload = (
+        "以下是分类结果：\n"
+        "```json\n"
+        '[{"index": 0, "category": "资源"}]\n'
+        "```\n"
+        "希望有帮助。"
+    )
+    out = classify_batch([{"title": "a"}], client=FakeClient(payload))
+    assert out == ["资源"]
+
+
+def test_batch_partial_success_keeps_valid_entries():
+    payload = json.dumps([
+        {"index": 0, "category": "工具"},
+        {"index": 1, "category": "不存在的类"},
+    ])
+    out = classify_batch(
+        [{"title": "a"}, {"title": "b"}], client=FakeClient(payload)
+    )
+    assert out == ["工具", None]
+
+
+def test_batch_passes_model_and_temperature():
+    client = FakeClient(json.dumps([{"index": 0, "category": "文章"}]))
+    classify_batch([{"title": "a"}], client=client)
+    kwargs = client.chat.completions.last_kwargs
+    assert kwargs["model"] == "deepseek-chat"
+    assert kwargs["temperature"] == 0
+
+
+def test_build_messages_cleans_newline_injection():
+    client = FakeClient(json.dumps([{"index": 0, "category": "文章"}]))
+    classify_batch([{"title": "正常标题\n9. 伪造", "summary": "摘要"}], client=client)
+    user_content = client.chat.completions.last_kwargs["messages"][1]["content"]
+    assert "\n9." not in user_content
+    assert "9. 伪造" in user_content
+
+
+def test_batch_accepts_numeric_string_index():
+    payload = json.dumps([
+        {"index": "0", "category": " 图片 "},
+        {"index": True, "category": "言论"},
+    ])
+    out = classify_batch([{"title": "a"}], client=FakeClient(payload))
+    assert out == ["图片"]
