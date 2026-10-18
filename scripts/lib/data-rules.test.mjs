@@ -40,7 +40,7 @@ test('空 tags 报错', () => {
 test('坏时间报错', () => {
   const r = validateRows([{ ...base, created_time: '2026/08/28' }]);
   assert.equal(r.ok, false);
-  assert.match(r.errors.join('\n'), /created_time 无法解析/);
+  assert.match(r.errors.join('\n'), /created_time 格式应为/);
 });
 
 test('缩水超过 10% 报错，allowShrink 放行', () => {
@@ -68,4 +68,38 @@ test('compareDatasets 发现条数与字段差异', () => {
 test('compareDatasets 一致时通过', () => {
   const r = compareDatasets([base], [{ ...base }]);
   assert.equal(r.ok, true, JSON.stringify(r.errors));
+});
+
+test('null 行返回错误而不是抛异常', () => {
+  const r = validateRows([base, null]);
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join('\n'), /不是对象/);
+});
+
+test('缩水边界：16 降到 14 拦截，10 降到 9 放行', () => {
+  const makeRows = (n) => Array.from({ length: n }, (_, i) => ({
+    ...base,
+    id: i + 1,
+    original_url: `https://example.com/${i + 1}`,
+  }));
+
+  const blocked = validateRows(makeRows(14), { previousCount: 16 });
+  assert.equal(blocked.ok, false);
+  assert.match(blocked.errors.join('\n'), /缩水阈值/);
+
+  const allowed = validateRows(makeRows(9), { previousCount: 10 });
+  assert.equal(allowed.ok, true, JSON.stringify(allowed.errors));
+});
+
+test('original_url 重复时仅警告', () => {
+  const r = validateRows([base, { ...base, id: 2 }]);
+  assert.equal(r.ok, true, JSON.stringify(r.errors));
+  assert.match(r.warnings.join('\n'), /original_url 重复/);
+});
+
+test('compareDatasets 发现生成物缺少 DB 行', () => {
+  const dbRows = [base, { ...base, id: 2, original_url: 'https://example.com/b' }];
+  const r = compareDatasets(dbRows, [base]);
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join('\n'), /生成物缺少 DB 行/);
 });
