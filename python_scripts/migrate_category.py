@@ -2,6 +2,7 @@
 """一次性迁移：加 category 列、补 uid、导入手工内容、回填分类。
 
 默认先备份、再在事务里执行；--dry-run 在临时副本上执行，不改真实 DB。
+LLM 分类失败时默认保留 NULL，重跑会再次尝试；--allow-fallback 才会写入默认分类。
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import json
 import re
 import shutil
 import sqlite3
+import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -123,7 +125,18 @@ def insert_manual_items(conn, site_items) -> int:
     return inserted
 
 
-def classify_missing(conn, client=None, batch_size: int = BATCH_SIZE):
+def classify_missing(
+    conn,
+    client=None,
+    batch_size: int = BATCH_SIZE,
+    allow_fallback: bool = False,
+    retry: bool = True,
+):
+    """给 category 为空的行补分类。
+
+    失败行默认保留 NULL（下次重跑可重试），只有 allow_fallback=True 才写默认分类。
+    返回 (成功条数, 失败条数)。
+    """
     rows = list(
         conn.execute(
             "SELECT id, title, summary FROM content_summary "
@@ -135,6 +148,8 @@ def classify_missing(conn, client=None, batch_size: int = BATCH_SIZE):
         chunk = rows[start : start + batch_size]
         items = [{"title": row[1], "summary": row[2] or ""} for row in chunk]
         categories = classify_batch(items, client=client)
+        if retry and client is not None and all(cat is None for cat in categories):
+            categories = classify_batch(items, client=client)
         for (row_id, _, _), category in zip(chunk, categories):
             if category:
                 conn.execute(
@@ -143,86 +158,134 @@ def classify_missing(conn, client=None, batch_size: int = BATCH_SIZE):
                 )
                 classified += 1
             else:
-                conn.execute(
-                    "UPDATE content_summary SET category=?, category_source='default' WHERE id=?",
-                    (DEFAULT_CATEGORY, row_id),
-                )
+                if allow_fallback:
+                    conn.execute(
+                        "UPDATE content_summary SET category=?, category_source='default' WHERE id=?",
+                        (DEFAULT_CATEGORY, row_id),
+                    )
+                # allow_fallback=False 时不动该行，category 保持 NULL 以便重跑重试
                 failed += 1
     return classified, failed
 
 
-def run_migration(db_path, site_js_path, *, skip_llm=False, client=None) -> dict:
+def run_migration(
+    db_path,
+    site_js_path,
+    *,
+    skip_llm=False,
+    client=None,
+    allow_fallback=False,
+) -> dict:
     site_items = load_site_items(Path(site_js_path))
     conn = sqlite3.connect(db_path)
     conn.isolation_level = None
     try:
-        conn.execute("BEGIN")
-        added = ensure_columns(conn)
-        uid_backfilled = backfill_uid(conn)
-        updated = apply_site_categories(conn, site_items)
-        inserted = insert_manual_items(conn, site_items)
-        classified = failed = 0
-        if not skip_llm:
-            classified, failed = classify_missing(conn, client=client)
-        conn.execute("COMMIT")
-    except Exception:
-        conn.execute("ROLLBACK")
-        conn.close()
-        raise
+        try:
+            conn.execute("BEGIN")
+            added = ensure_columns(conn)
+            uid_backfilled = backfill_uid(conn)
+            updated = apply_site_categories(conn, site_items)
+            inserted = insert_manual_items(conn, site_items)
+            classified = failed = 0
+            if not skip_llm:
+                classified, failed = classify_missing(
+                    conn, client=client, allow_fallback=allow_fallback
+                )
+            conn.execute("COMMIT")
+        except BaseException:
+            # 回滚本身失败不能掩盖原始异常
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
 
-    total = conn.execute("SELECT COUNT(*) FROM content_summary").fetchone()[0]
-    coverage = conn.execute(
-        "SELECT COUNT(*) FROM content_summary WHERE category IS NOT NULL AND category != ''"
-    ).fetchone()[0]
-    distribution = dict(
-        conn.execute(
-            "SELECT COALESCE(category, '(空)'), COUNT(*) FROM content_summary GROUP BY category"
+        total = conn.execute("SELECT COUNT(*) FROM content_summary").fetchone()[0]
+        coverage = conn.execute(
+            "SELECT COUNT(*) FROM content_summary WHERE category IS NOT NULL AND category != ''"
+        ).fetchone()[0]
+        distribution = dict(
+            conn.execute(
+                "SELECT COALESCE(category, '(空)'), COUNT(*) FROM content_summary GROUP BY category"
+            )
         )
-    )
-    sources = dict(
-        conn.execute(
-            "SELECT COALESCE(category_source, '(空)'), COUNT(*) FROM content_summary GROUP BY category_source"
+        sources = dict(
+            conn.execute(
+                "SELECT COALESCE(category_source, '(空)'), COUNT(*) FROM content_summary GROUP BY category_source"
+            )
         )
-    )
-    conn.close()
-    return {
-        "added_columns": added,
-        "uid_backfilled": uid_backfilled,
-        "updated_from_site": updated,
-        "inserted_manual": inserted,
-        "classified": classified,
-        "classify_failed": failed,
-        "total_rows": total,
-        "category_coverage": coverage,
-        "distribution": distribution,
-        "sources": sources,
-    }
+        db_urls = {
+            row[0] for row in conn.execute("SELECT original_url FROM content_summary")
+        }
+        site_legacy_unmatched = sum(
+            1
+            for item in site_items
+            if item.get("created_time") and (item.get("original_url") or "") not in db_urls
+        )
+        return {
+            "added_columns": added,
+            "uid_backfilled": uid_backfilled,
+            "updated_from_site": updated,
+            "inserted_manual": inserted,
+            "classified": classified,
+            "classify_failed": failed,
+            "allow_fallback": allow_fallback,
+            "total_rows": total,
+            "category_coverage": coverage,
+            "site_legacy_unmatched": site_legacy_unmatched,
+            "distribution": distribution,
+            "sources": sources,
+        }
+    finally:
+        conn.close()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="迁移 DB 到 category 真源模型")
     parser.add_argument("--dry-run", action="store_true", help="在临时副本上执行，不改真实 DB")
     parser.add_argument("--skip-llm", action="store_true", help="跳过 LLM 分类")
+    parser.add_argument(
+        "--allow-fallback",
+        action="store_true",
+        help="分类失败时用「文章」兜底并标记 default",
+    )
     parser.add_argument("--db", default=str(DB_PATH))
     parser.add_argument("--site-js", default=str(SITE_JS))
     args = parser.parse_args()
+
+    db_path = Path(args.db)
+    site_path = Path(args.site_js)
+    if not db_path.is_file():
+        print(f"❌ --db 文件不存在: {db_path}", file=sys.stderr)
+        return 1
+    if not site_path.is_file():
+        print(f"❌ --site-js 文件不存在: {site_path}", file=sys.stderr)
+        return 1
 
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     if args.dry_run:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="deepthink-migrate-"))
-        target = tmp_dir / "dryrun.db"
-        shutil.copy2(args.db, target)
+        with tempfile.TemporaryDirectory(prefix="deepthink-migrate-") as tmp_dir:
+            target = Path(tmp_dir) / "dryrun.db"
+            shutil.copy2(db_path, target)
+            report = run_migration(
+                target,
+                site_path,
+                skip_llm=args.skip_llm,
+                allow_fallback=args.allow_fallback,
+            )
     else:
         backup = BACKUP_DIR / f"web_content-{stamp}.db"
-        shutil.copy2(args.db, backup)
-        target = Path(args.db)
+        shutil.copy2(db_path, backup)
         print(f"🗄  备份: {backup}")
+        report = run_migration(
+            db_path,
+            site_path,
+            skip_llm=args.skip_llm,
+            allow_fallback=args.allow_fallback,
+        )
 
-    report = run_migration(
-        target, Path(args.site_js), skip_llm=args.skip_llm
-    )
     report["mode"] = "dry-run" if args.dry_run else "apply"
     report_path = BACKUP_DIR / f"migration-report-{stamp}.json"
     report_path.write_text(
@@ -230,6 +293,15 @@ def main() -> int:
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     print(f"📄 报告: {report_path}")
+
+    if not args.dry_run and report["classify_failed"] > 0 and not args.allow_fallback:
+        print(
+            f"❌ 分类失败 {report['classify_failed']} 条：这些行的 category 保留为 NULL，"
+            "未被写入兜底分类。请修复 DEEPSEEK_API_KEY/网络后重跑（失败行会自动重试），"
+            "或用 --allow-fallback 接受「文章」兜底。",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 
