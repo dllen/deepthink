@@ -36,7 +36,7 @@
 - 前端组件、样式与交互 bug（S2）。
 - 明文 DB 的跟踪与加密策略、供应链（S3）。
 - CI 权限、并发、部署后冒烟、Cloudflare/`base` 问题（S4）。
-- Python 包整体结构与 legacy 脚本归档（S5）。唯一例外：`web_content_system/__init__.py` 的惰性导出（见 §4.1 前置），因为迁移脚本需要复用 LLM 客户端。
+- Python 包整体结构与 legacy 脚本归档（S5）。
 
 ## 3. 决策记录
 
@@ -73,7 +73,7 @@ ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default';
 
 `uid`（`md5(original_url)`，`idx_uid` 唯一索引）当前有 2 行为 NULL，迁移时补全；若 `original_url` 为空，用 `md5(title + created_time)`。
 
-**前置小改**：`python_scripts/web_content_system/__init__.py` 目前 `from .extractor import WebContentExtractor` 会在导入包时拉起 selenium；改为惰性导出（`__getattr__`），使 `llm_clients`/`config` 可独立导入。这是迁移脚本复用 DeepSeek 客户端的前提。
+**前置说明**：分类器实现为独立模块 `python_scripts/category_classifier.py`，直接用 `openai` SDK + `dotenv` 调 DeepSeek，不 import `web_content_system`，因此不受该包顶层拉起 selenium 的问题影响（包结构问题留给 S5）。
 
 ### 4.2 分类回填
 
@@ -82,6 +82,7 @@ ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default';
 1. **保留现有分类**：从 `static-data.js` 建立 `original_url → category` 映射（143 条）。命中 DB 的行写入 `category`，其中 32 条手工分类记 `manual`，其余（103 条旧文）记 `legacy-default`。
 2. **补齐缺失**：DB 中 `category IS NULL` 的行（约 89 条 8 月内容）用 DeepSeek 分类，记 `llm`。按每批 10 条（标题 + 摘要）请求，要求返回 JSON 数组，校验只含七类之一；单条失败重试一次，仍失败落「文章」+ `default` 并在报告计数。
 3. **人工修正**：`python_scripts/set_category.py <url|id> <分类>` 写入 `manual`。以后任何分类任务只处理 `category IS NULL` 的行，不覆盖已有值。
+4. **新内容入库时分类**：`fetch_from_params.py` 的 `save_to_db()` 与 `crawler_subpages.py` 的 `insert_row()` 在写入前调用 `category_classifier.classify_one(title, summary)`，写入 `category` 与 `category_source`（成功 `llm`，失败 `default`）。已有行的 `update_content` 路径不改分类。
 
 七类枚举：科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论（与 `src/utils/categories.js` 保持一致）。
 
@@ -141,8 +142,9 @@ id 13–17、30–32 共 8 条只存在于 `static-data.js`、DB 中已删除。
 - 新增 `npm run check:data` → `scripts/check-data.mjs`：读 DB 与 `static-data.js`，按同一套规则校验字段与一致性（条数、id 集合、分类覆盖、时间可解析），并校验 `static-data.json` 与 `static-data.js` 是同一份数据；不一致或违约时非零退出。
 - 单测：用 Node 内置 `node --test`，覆盖 `data-rules.mjs` 的关键规则（缺分类、重复 id、断崖缩水、空 tags、坏时间）与生成器的纯函数。
 - CI（`.github/workflows/deploy.yml`）在 S1 只加校验步骤，其余不动：
-  - PR：`npm ci` 不可用（无 lockfile），维持 `npm install --legacy-peer-deps` → `lint` → `check:data` → `build`
-  - push main：`check:data` → `build` → 部署（校验失败即不部署）
+  - PR：`npm ci` 不可用（无 lockfile），维持 `npm install --legacy-peer-deps` → `test:data` → `check:data` → `build`
+  - push main：`test:data` → `check:data` → `build` → 部署（校验失败即不部署）
+  - lint 门禁暂不加：线上代码当前有 3 个已存在的 lint error（属 S2 修复范围），现在加会让部署变红；S2 修完、S4 再接。
 - 完整的 `permissions`/`concurrency`/部署后冒烟留给 S4。
 
 ## 8. 人工修正闭环
@@ -167,6 +169,7 @@ id 13–17、30–32 共 8 条只存在于 `static-data.js`、DB 中已删除。
 - 生成物 224 条；`id` 唯一；`created_time` 全部可解析；无 DB 中不存在的 URL。
 - `npm run check:data`、`node --test`、`npm run build`、`npm run lint` 全部通过。
 - 生成器对三类坏输入有单测并通过：缺分类、重复 id、断崖缩水。
+- 抓取入库路径的新条目在模拟分类器下能写入 `category`/`category_source`（单测覆盖）；分类器不可用时落「文章」+ `default`。
 - 线上站点显示 224 条；分类计数与 DB 分布一致；搜索"英伟达财报"不再多出卡片。
 - `static-data.json` 与 `static-data.js` 内容一致（同一生成结果）。
 
@@ -187,6 +190,8 @@ id 13–17、30–32 共 8 条只存在于 `static-data.js`、DB 中已删除。
 
 - `python_scripts/migrate_category.py`
 - `python_scripts/set_category.py`
+- `python_scripts/category_classifier.py`
+- `python_scripts/test_category_classifier.py`
 - `scripts/lib/data-rules.mjs` + `scripts/lib/data-rules.test.mjs`
 - `scripts/check-data.mjs`
 - 迁移报告 `python_scripts/backups/migration-report-<ts>.json`（运行后生成，gitignored）
@@ -194,7 +199,8 @@ id 13–17、30–32 共 8 条只存在于 `static-data.js`、DB 中已删除。
 修改：
 
 - `scripts/generate-data.js`（重写）
-- `python_scripts/web_content_system/__init__.py`（惰性导出）
+- `python_scripts/fetch_from_params.py`（入库时写分类）
+- `python_scripts/crawler_subpages.py`（入库时写分类）
 - `package.json`（`check:data`、`test:data` 脚本）
 - `.github/workflows/deploy.yml`（加 lint/check 步骤）
 - `src/assets/static-data.json`、`src/assets/static-data.js`（重新生成）
