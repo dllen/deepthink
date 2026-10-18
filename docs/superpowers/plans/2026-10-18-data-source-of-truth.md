@@ -162,8 +162,8 @@ export function validateRows(rows, { previousCount = null, allowShrink = false }
   }
 
   if (previousCount != null && previousCount > 0) {
-    const floor = Math.floor(previousCount * (1 - SHRINK_TOLERANCE));
-    if (rows.length < floor && !allowShrink) {
+    const limit = Math.ceil(previousCount * (1 - SHRINK_TOLERANCE));
+    if (rows.length < limit && !allowShrink) {
       errors.push(
         `行数从 ${previousCount} 降到 ${rows.length}，超过 ${SHRINK_TOLERANCE * 100}% 缩水阈值（用 --allow-shrink 放行）`,
       );
