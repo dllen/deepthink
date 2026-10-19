@@ -5,13 +5,19 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
     - name: Checkout code
@@ -35,12 +41,14 @@ jobs:
     # with the SQLITE_KEY secret so `check:data` can verify it with sql.js.
 
     - name: Decrypt database
+      id: decrypt
       env:
         SQLITE_KEY: ${{ secrets.SQLITE_KEY }}
       run: |
         if [ -z "$SQLITE_KEY" ]; then
-          echo "::error::SQLITE_KEY secret is not set"
-          exit 1
+          echo "::warning::SQLITE_KEY not available (fork PR?) — skipping database checks"
+          echo "skipped=true" >> "$GITHUB_OUTPUT"
+          exit 0
         fi
         ./scripts/decrypt-db.sh
 
@@ -48,12 +56,14 @@ jobs:
       run: npm run test:data
 
     - name: Check data consistency
+      if: steps.decrypt.outputs.skipped != 'true'
       run: npm run check:data
 
     - name: Build project
       run: npm run build
 
     - name: Deploy to GitHub Pages
+      if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847  # v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
