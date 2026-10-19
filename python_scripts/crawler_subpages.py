@@ -230,8 +230,6 @@ CREATE TABLE IF NOT EXISTS manual_content (
     summary      TEXT,
     tags         TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_uid  ON content_summary (uid);
-CREATE INDEX        IF NOT EXISTS idx_tags ON content_summary (tags);
 """
 
 MAX_CONTENT_LEN = 100_000  # cap per-row stored body to keep DB compact
@@ -249,6 +247,8 @@ def ensure_schema(path: Path) -> sqlite3.Connection:
     cur = conn.cursor()
     cur.execute("PRAGMA table_info(content_summary)")
     cols = [row[1] for row in cur.fetchall()]
+    if "uid" not in cols:
+        cur.execute("ALTER TABLE content_summary ADD COLUMN uid TEXT")
     if "content" not in cols:
         cur.execute("ALTER TABLE content_summary ADD COLUMN content TEXT")
     if "category" not in cols:
@@ -257,6 +257,10 @@ def ensure_schema(path: Path) -> sqlite3.Connection:
         cur.execute(
             "ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default'"
         )
+    # Indexes must come after the ALTERs: an old DB may lack uid/category, and
+    # CREATE INDEX on a missing column fails before the upgrade completes.
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_uid ON content_summary (uid)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_tags ON content_summary (tags)")
     conn.commit()
     return conn
 
@@ -297,7 +301,15 @@ def insert_row(
             return row[0] if row else None
         # Row didn't exist yet — fall through to insert
 
+    # Duplicate check BEFORE classification: re-running over an existing DB must
+    # not spend a DeepSeek call (or an INSERT OR IGNORE) on a known URL.
+    cur.execute("SELECT id FROM content_summary WHERE uid = ?", (uid,))
+    if cur.fetchone():
+        return None
+
     category = classify_one(title, summary)
+    if not category:
+        print("  ⚠️  分类失败，使用兜底「文章」（source=default）")
     cur.execute(
         "INSERT OR IGNORE INTO content_summary "
         "(title, created_time, summary, original_url, tags, uid, content, category, category_source) "
@@ -623,6 +635,11 @@ def main() -> int:
 
     conn = ensure_schema(DB_PATH)
     print("✓ schema verified\n")
+
+    from category_classifier import make_client
+
+    if make_client() is None:
+        print("⚠️  未配置 DEEPSEEK_API_KEY 或缺少 openai SDK：新内容将使用「文章」兜底分类")
 
     grand_inserted = 0
     grand_skipped = 0

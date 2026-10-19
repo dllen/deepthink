@@ -77,6 +77,8 @@ def make_client():
         _CLIENT = OpenAI(
             api_key=api_key,
             base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
+            timeout=20,
+            max_retries=1,
         )
     except Exception as exc:
         logger.warning(
