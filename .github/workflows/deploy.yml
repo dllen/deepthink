@@ -69,3 +69,52 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./dist
         publish_branch: gh-pages
+
+    # Cloudflare may serve an old index or a 200 fallback after a deploy, so a
+    # bare status check proves nothing: compare the asset name with this build.
+    - name: Smoke test production
+      if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      run: |
+        set -euo pipefail
+        EXPECTED=$(grep -o 'assets/index-[^"]*\.js' dist/index.html | head -1 || true)
+        if [ -z "$EXPECTED" ]; then
+          echo "::error::could not find built asset in dist/index.html"
+          exit 1
+        fi
+        echo "Expected asset: $EXPECTED"
+
+        BASE="https://deepthink.global"
+        OK=0
+        for attempt in 1 2 3 4 5 6; do
+          code=$(curl -sS -o /tmp/index.html -w '%{http_code}' "$BASE/" || true)
+          ctype=$(curl -sSI "$BASE/" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1)
+          actual=$(grep -o 'assets/index-[^"]*\.js' /tmp/index.html | head -1 || true)
+          echo "attempt $attempt: status=$code content-type=$ctype asset=$actual"
+          if [ "$code" = "200" ] && echo "$ctype" | grep -qi 'text/html' && [ "$actual" = "$EXPECTED" ]; then
+            OK=1
+            break
+          fi
+          sleep 10
+        done
+        if [ "$OK" != "1" ]; then
+          echo "::error::production index did not match the deployed build (expected asset: $EXPECTED, last actual asset: $actual)"
+          exit 1
+        fi
+
+        acode=$(curl -sS -o /tmp/app.js -w '%{http_code}' "$BASE/$EXPECTED")
+        atype=$(curl -sSI "$BASE/$EXPECTED" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1)
+        echo "asset: status=$acode content-type=$atype"
+        if [ "$acode" != "200" ] || ! echo "$atype" | grep -qi 'javascript'; then
+          echo "::error::deployed asset is missing or wrong content-type ($EXPECTED: status=$acode content-type=$atype)"
+          exit 1
+        fi
+
+        lcode=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/logo.svg")
+        ltype=$(curl -sSI "$BASE/logo.svg" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1)
+        echo "logo: status=$lcode content-type=$ltype"
+        if [ "$lcode" != "200" ] || ! echo "$ltype" | grep -qi 'image/svg'; then
+          echo "::error::logo.svg missing or wrong content-type (status=$lcode content-type=$ltype)"
+          exit 1
+        fi
+
+        echo "Production smoke passed"
