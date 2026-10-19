@@ -2,10 +2,6 @@ import { last30daysSources } from '../assets/last30days-sources';
 import { buildSearchUrl } from '../utils/searchUtils';
 
 const SourcesGrid = ({ query }) => {
-  const handleCardClick = (url) => {
-    window.open(url, '_blank');
-  };
-
   return (
     <div className="mb-8">
       {/* 栏目标题 */}
@@ -22,6 +18,10 @@ const SourcesGrid = ({ query }) => {
         </span>
       </div>
 
+      <p className="text-xs text-slate-400 mb-3">
+        输入关键词后点击卡片，直接打开该平台的搜索结果
+      </p>
+
       {/* 卡片网格 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {last30daysSources.map((source) => {
@@ -30,12 +30,12 @@ const SourcesGrid = ({ query }) => {
             : source.url.replace('{q}', '');
 
           return (
-            <button
+            <a
               key={source.id}
-              onClick={() => handleCardClick(searchUrl)}
-              className={`group text-left bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-50 transition-all duration-300 overflow-hidden cursor-pointer
-                ${!query.trim() ? 'opacity-60' : ''}
-              `}
+              href={searchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block text-left bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-50 transition-all duration-300 overflow-hidden cursor-pointer"
             >
               {/* 顶部色条 */}
               <div className={`h-1.5
@@ -76,7 +76,7 @@ const SourcesGrid = ({ query }) => {
                   {source.description}
                 </p>
               </div>
-            </button>
+            </a>
           );
         })}
       </div>
