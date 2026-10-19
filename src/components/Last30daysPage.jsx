@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import SearchHero from './SearchHero';
 import SourcesGrid from './SourcesGrid';
 import PhilosophySection from './PhilosophySection';
 
-const Last30daysPage = () => {
-  const [query, setQuery] = useState('');
-
+const Last30daysPage = ({ query, onQueryChange }) => {
   return (
     <div className="py-8">
       {/* 页面标题 */}
@@ -19,7 +16,7 @@ const Last30daysPage = () => {
       </div>
 
       {/* 搜索英雄区 */}
-      <SearchHero />
+      <SearchHero query={query} onQueryChange={onQueryChange} />
 
       {/* 理念说明区 */}
       <PhilosophySection />

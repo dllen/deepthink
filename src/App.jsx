@@ -12,6 +12,15 @@ import Last30daysPage from './components/Last30daysPage';
 import data from './assets/static-data.js';
 import logo from './assets/logo.svg';
 
+const VIEW_BROWSE = 'browse';
+const VIEW_SEARCH = 'search';
+const VIEW_HASH = { [VIEW_BROWSE]: '#/browse', [VIEW_SEARCH]: '#/search' };
+
+function readViewFromHash() {
+  const raw = window.location.hash.replace(/^#\/?/, '');
+  return raw === VIEW_SEARCH ? VIEW_SEARCH : VIEW_BROWSE;
+}
+
 const App = () => {
   const [items, setItems] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -21,7 +30,17 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [categoryCounts, setCategoryCounts] = useState({});
-  const [currentView, setCurrentView] = useState('browse'); // 'browse' | 'search'
+  const [currentView, setCurrentView] = useState(readViewFromHash);
+  const [searchPageQuery, setSearchPageQuery] = useState('');
+
+  useEffect(() => {
+    const syncFromHash = () => setCurrentView(readViewFromHash());
+    window.addEventListener('hashchange', syncFromHash);
+    if (window.location.hash !== VIEW_HASH[readViewFromHash()]) {
+      window.history.replaceState(null, '', VIEW_HASH[readViewFromHash()]);
+    }
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
 
   useEffect(() => {
     const allTags = new Set();
@@ -103,6 +122,13 @@ const App = () => {
     setSearchQuery('');
   };
 
+  // 切换视图：只写 hash，state 由 hashchange 同步
+  const switchView = (view) => {
+    if (view === currentView) return;
+    window.location.hash = VIEW_HASH[view];
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
 
 
   return (
@@ -121,9 +147,9 @@ const App = () => {
           {/* Tab Navigation */}
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
             <button
-              onClick={() => setCurrentView('browse')}
+              onClick={() => switchView(VIEW_BROWSE)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                currentView === 'browse'
+                currentView === VIEW_BROWSE
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-800'
               }`}
@@ -131,9 +157,9 @@ const App = () => {
               内容浏览
             </button>
             <button
-              onClick={() => setCurrentView('search')}
+              onClick={() => switchView(VIEW_SEARCH)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                currentView === 'search'
+                currentView === VIEW_SEARCH
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-800'
               }`}
@@ -143,13 +169,13 @@ const App = () => {
           </div>
 
           <div className="hidden sm:block text-sm text-slate-400">
-            {currentView === 'browse' ? `${filteredData.length} 条内容` : '跨源搜索'}
+            {currentView === VIEW_BROWSE ? `${filteredData.length} 条内容` : '跨源搜索'}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-        {currentView === 'browse' ? (
+        {currentView === VIEW_BROWSE ? (
           <>
             {/* 分析报告栏目 */}
             <ReportsPanel />
@@ -218,7 +244,7 @@ const App = () => {
             )}
           </>
         ) : (
-          <Last30daysPage />
+          <Last30daysPage query={searchPageQuery} onQueryChange={setSearchPageQuery} />
         )}
       </main>
 
