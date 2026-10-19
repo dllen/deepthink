@@ -77,14 +77,14 @@ Configure the CI secret at: repository **Settings → Secrets and variables → 
 
 ### GitHub Actions
 
-`deploy.yml` installs with `npm ci` (committed `package-lock.json`), decrypts the database with the `SQLITE_KEY` secret, then runs `npm run test:data`, `npm run check:data`, and `npm run build`. Third-party actions are pinned to commit SHAs and the workflow declares `permissions: contents: write`.
+`deploy.yml` installs with `npm ci` (committed `package-lock.json`), decrypts the database with the `SQLITE_KEY` secret, then runs `npm run test:data`, `npm run check:data`, and `npm run build`. Third-party actions are pinned to commit SHAs and the workflow declares `permissions: contents: write`. On a non-PR run (push to `main` or `workflow_dispatch`), a missing `SQLITE_KEY` is a hard `::error::` failure instead of a silent skip.
 
 Deployment rules:
 
 - **Production entry point is `https://deepthink.global` only.** The GitHub Pages project alias `https://dllen.github.io/deepthink/` is not supported (absolute paths in the site, Vite `base` left at default).
-- Pull requests run `test:data` / `check:data` / `build` but **never deploy**. The deploy step is gated on `push` to `main` or a manual `workflow_dispatch`.
+- Pull requests run `test:data` / `check:data` / `build` but **never deploy**. The deploy step is gated on `push` to `main` or a manual `workflow_dispatch` **started on `main`** (a dispatch on another branch runs the checks but does not deploy).
 - Manual release: **Actions → Deploy to GitHub Pages → Run workflow** on `main`.
-- Fork PRs: the `SQLITE_KEY` secret is unavailable, so `Decrypt database` emits a warning and sets `skipped=true`; `check:data` is skipped while the other checks still run.
-- Deploys are serialized by `concurrency: pages-deploy` with `cancel-in-progress: true`; the job has `timeout-minutes: 10`.
-- After deploying, `Smoke test production` retries 6 times (10s apart) and asserts: index returns 200 + `text/html`, the `assets/index-*.js` referenced by the index matches the locally built `dist/index.html`, that asset returns 200 + javascript, and `/logo.svg` returns 200 + `image/svg+xml`. It fails the workflow with diagnostics on mismatch — a 200 alone is not proof because Cloudflare may serve a fallback page.
+- Fork PRs: the `SQLITE_KEY` secret is unavailable, so `Decrypt database` emits a warning and sets `skipped=true`; `check:data` is skipped while `test:data` (which creates its own temporary DB) and `build` still run.
+- Deploys use `concurrency: group: pages-deploy-${{ github.ref }}` with `cancel-in-progress: true`: runs on `refs/heads/main` (push and manual dispatch) share one group, so a new run cancels an in-progress old one; pull requests get their own ref group and cannot cancel a production deploy. The job has `timeout-minutes: 10`.
+- After deploying, `Smoke test production` retries **the index check** 6 times (10s apart, and no sleep after the last failed attempt): index returns 200 + `text/html`, and the `assets/index-*.js` referenced by the index matches the locally built `dist/index.html`. Once that passes, `assets/index-*.js`, `assets/index-*.css`, and `/logo.svg` are each checked once (200 + javascript / `text/css` / `image/svg+xml`). Every `curl` uses `-m 15`, and a failure fails the workflow with the last status / content-type / expected / actual values — a 200 alone is not proof because Cloudflare may serve a fallback page.
 - Rollback the application with `git revert <bad-commit> && git push` (CI rebuilds and redeploys). Do not hand-edit `gh-pages`; as a last resort, point it back with `git push --force-with-lease origin <deploy-sha>:gh-pages`.

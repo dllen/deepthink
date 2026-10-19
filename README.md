@@ -77,7 +77,7 @@ npm run lint    # ESLint
 5. 重新加密并提交加密副本：`export SQLITE_KEY=... && ./scripts/encrypt-db.sh`，然后提交 `python_scripts/web_content.db.enc`；**不要提交明文** `python_scripts/web_content.db`。
 6. 本地预览：`npm run dev`
 7. 提交并推送：`git add -A && git commit -m "chore(content): ..." && git push`（`git add -A` 不会纳入被忽略的明文 DB）
-8. 推送后 GitHub Actions 自动部署到 GitHub Pages
+8. 推送到 `main` 后 GitHub Actions 自动部署到 GitHub Pages（PR 与其他分支的 push 只跑检查，不会部署）
 
 需要人工修正某条内容的分类时：
 
@@ -93,11 +93,11 @@ python3 set_category.py --url <原文链接> <七类之一>
 
 - 生产入口固定为 `https://deepthink.global`（根路径）。GitHub Pages 项目别名 `https://dllen.github.io/deepthink/` **不支持**：站点使用绝对路径且 Vite `base` 保持默认，请只使用自定义域。
 - `npm run build` 生成 `dist/`。
-- CI（`.github/workflows/deploy.yml`）用 `npm ci` 安装依赖，在 build 前用 `SQLITE_KEY` secret 运行 `./scripts/decrypt-db.sh`，再执行 `npm run test:data` 与 `npm run check:data`。fork PR 没有该 secret 时，decrypt 输出 warning 并跳过 `check:data`，其余检查照常。
+- CI（`.github/workflows/deploy.yml`）用 `npm ci` 安装依赖，在 build 前用 `SQLITE_KEY` secret 运行 `./scripts/decrypt-db.sh`，再执行 `npm run test:data` 与 `npm run check:data`。fork PR 没有该 secret 时，decrypt 输出 warning 并跳过 `check:data`（`test:data` 不依赖 DB，照常运行）；push 到 `main` 或手动触发时若缺该 secret，decrypt 直接 `::error::` 失败并中断 workflow，不会继续部署。
 - CI **不重新生成数据**，直接部署提交的 `static-data.json` / `static-data.js`；更新内容后必须提交这两个生成物。
-- PR 触发 workflow（`test:data` / `check:data` / `build`）但**不会部署**；只有 push 到 `main` 或手动触发 `workflow_dispatch` 才部署到 `gh-pages` 分支。手动发布：仓库 **Actions → Deploy to GitHub Pages → Run workflow**（选择 `main`）。
-- 部署带 `concurrency: pages-deploy`（新部署取消进行中的旧部署）与 `timeout-minutes: 10`。
-- 部署后自动冒烟：最多重试 6 次、每次间隔 10s，校验首页 200 且 content-type 为 `text/html`、首页引用的 `assets/index-*.js` 与本次构建产物一致、该 asset 返回 200 且 content-type 为 javascript、`/logo.svg` 返回 200 且 content-type 为 `image/svg+xml`；任一失败会让 workflow 变红并输出诊断。Cloudflare 对未知路径可能返回 200 + 首页，所以只看状态码不够，必须比对 asset 名。
+- PR 触发 workflow（`test:data` / `check:data` / `build`）但**不会部署**；只有 push 到 `main`，或**在 `main` 上**手动触发 `workflow_dispatch`，才部署到 `gh-pages` 分支。手动发布：仓库 **Actions → Deploy to GitHub Pages → Run workflow**（选择 `main`）。
+- 部署使用 `concurrency: group: pages-deploy-<ref>`：`main` 的 push 与手动部署共享 `refs/heads/main` 这一组，新运行会取消进行中的旧运行；PR 各有独立的 ref 组，不会取消生产部署。job 带 `timeout-minutes: 10`。
+- 部署后自动冒烟：**仅首页检查**（200 + `text/html` + 首页引用的 `assets/index-*.js` 与本次构建产物一致）重试 6 次、每次间隔 10s，最后一次失败后不再等待；随后 `assets/index-*.js`、`assets/index-*.css`、`/logo.svg` 各校验一次，分别要求 200 + javascript / `text/css` / `image/svg+xml`。所有 `curl` 都带 `-m 15`；任一失败会让 workflow 变红，`::error::` 带上最后一次的 status / content-type / 期望值与实际值。Cloudflare 对未知路径可能返回 200 + 首页，所以只看状态码不够，必须比对 asset 名。
 - 回滚：应用回滚用 `git revert <bad-commit> && git push`，由 CI 重新构建部署。不建议直接改 `gh-pages`；确需回退产物时用 `git push --force-with-lease origin <deploy-sha>:gh-pages` 把分支指回上一个部署提交。
 
 ## 使用说明

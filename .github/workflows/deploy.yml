@@ -11,7 +11,10 @@ permissions:
   contents: write
 
 concurrency:
-  group: pages-deploy
+  # PRs get their own group (refs/pull/N/merge), so a PR run can never cancel
+  # a production deploy. Pushes to main and manual dispatches share
+  # refs/heads/main, where a new run still cancels an in-progress old one.
+  group: pages-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,9 +49,13 @@ jobs:
         SQLITE_KEY: ${{ secrets.SQLITE_KEY }}
       run: |
         if [ -z "$SQLITE_KEY" ]; then
-          echo "::warning::SQLITE_KEY not available (fork PR?) — skipping database checks"
-          echo "skipped=true" >> "$GITHUB_OUTPUT"
-          exit 0
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "::warning::SQLITE_KEY not available (fork PR?) — skipping database checks"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::SQLITE_KEY secret is not set"
+          exit 1
         fi
         ./scripts/decrypt-db.sh
 
@@ -63,7 +70,7 @@ jobs:
       run: npm run build
 
     - name: Deploy to GitHub Pages
-      if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847  # v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -73,47 +80,62 @@ jobs:
     # Cloudflare may serve an old index or a 200 fallback after a deploy, so a
     # bare status check proves nothing: compare the asset name with this build.
     - name: Smoke test production
-      if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       run: |
         set -euo pipefail
         EXPECTED=$(grep -o 'assets/index-[^"]*\.js' dist/index.html | head -1 || true)
-        if [ -z "$EXPECTED" ]; then
-          echo "::error::could not find built asset in dist/index.html"
+        EXPECTED_CSS=$(grep -o 'assets/index-[^"]*\.css' dist/index.html | head -1 || true)
+        if [ -z "$EXPECTED" ] || [ -z "$EXPECTED_CSS" ]; then
+          echo "::error::could not find built JS/CSS assets in dist/index.html"
           exit 1
         fi
-        echo "Expected asset: $EXPECTED"
+        echo "Expected JS asset: $EXPECTED"
+        echo "Expected CSS asset: $EXPECTED_CSS"
 
         BASE="https://deepthink.global"
         OK=0
+        code=""
+        ctype=""
+        actual=""
         for attempt in 1 2 3 4 5 6; do
-          code=$(curl -sS -o /tmp/index.html -w '%{http_code}' "$BASE/" || true)
-          ctype=$(curl -sSI "$BASE/" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1)
+          code=$(curl -sS -m 15 -o /tmp/index.html -w '%{http_code}' "$BASE/" || true)
+          ctype=$(curl -sSI -m 15 "$BASE/" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1 || true)
           actual=$(grep -o 'assets/index-[^"]*\.js' /tmp/index.html | head -1 || true)
           echo "attempt $attempt: status=$code content-type=$ctype asset=$actual"
           if [ "$code" = "200" ] && echo "$ctype" | grep -qi 'text/html' && [ "$actual" = "$EXPECTED" ]; then
             OK=1
             break
           fi
-          sleep 10
+          if [ "$attempt" -lt 6 ]; then
+            sleep 10
+          fi
         done
         if [ "$OK" != "1" ]; then
-          echo "::error::production index did not match the deployed build (expected asset: $EXPECTED, last actual asset: $actual)"
+          echo "::error::production index did not match the deployed build (expected status=200 content-type=text/html asset=$EXPECTED; last status=$code content-type=$ctype asset=$actual)"
           exit 1
         fi
 
-        acode=$(curl -sS -o /tmp/app.js -w '%{http_code}' "$BASE/$EXPECTED")
-        atype=$(curl -sSI "$BASE/$EXPECTED" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1)
+        acode=$(curl -sS -m 15 -o /tmp/app.js -w '%{http_code}' "$BASE/$EXPECTED" || true)
+        atype=$(curl -sSI -m 15 "$BASE/$EXPECTED" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1 || true)
         echo "asset: status=$acode content-type=$atype"
         if [ "$acode" != "200" ] || ! echo "$atype" | grep -qi 'javascript'; then
-          echo "::error::deployed asset is missing or wrong content-type ($EXPECTED: status=$acode content-type=$atype)"
+          echo "::error::deployed asset is missing or wrong content-type (expected status=200 content-type=javascript; $EXPECTED: status=$acode content-type=$atype)"
           exit 1
         fi
 
-        lcode=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/logo.svg")
-        ltype=$(curl -sSI "$BASE/logo.svg" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1)
+        ccode=$(curl -sS -m 15 -o /tmp/app.css -w '%{http_code}' "$BASE/$EXPECTED_CSS" || true)
+        cstype=$(curl -sSI -m 15 "$BASE/$EXPECTED_CSS" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1 || true)
+        echo "css: status=$ccode content-type=$cstype"
+        if [ "$ccode" != "200" ] || ! echo "$cstype" | grep -qi 'text/css'; then
+          echo "::error::deployed CSS is missing or wrong content-type (expected status=200 content-type=text/css; $EXPECTED_CSS: status=$ccode content-type=$cstype)"
+          exit 1
+        fi
+
+        lcode=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' "$BASE/logo.svg" || true)
+        ltype=$(curl -sSI -m 15 "$BASE/logo.svg" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}' | head -1 || true)
         echo "logo: status=$lcode content-type=$ltype"
         if [ "$lcode" != "200" ] || ! echo "$ltype" | grep -qi 'image/svg'; then
-          echo "::error::logo.svg missing or wrong content-type (status=$lcode content-type=$ltype)"
+          echo "::error::logo.svg missing or wrong content-type (expected status=200 content-type=image/svg+xml; status=$lcode content-type=$ltype)"
           exit 1
         fi
 
