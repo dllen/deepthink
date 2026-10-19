@@ -103,7 +103,9 @@ Example: `feat: add a new article to the database`
 1. Commit from the `main` branch
 2. Use clear commit messages following the convention above
 3. Ensure `npm run build` succeeds before pushing
-4. The CI/CD workflow (`.github/workflows/deploy.yml`) also runs on pull requests (`test:data`, `check:data`, `build`); production deployment is based on `main` push.
+4. The CI/CD workflow (`.github/workflows/deploy.yml`) runs `test:data` / `check:data` / `build` on pull requests but **never deploys** them. Production is `https://deepthink.global` only (the GitHub Pages project alias `dllen.github.io/deepthink/` is unsupported: absolute paths, default Vite `base`). Deploy happens on push to `main` or manual `workflow_dispatch` (Actions → Deploy to GitHub Pages → Run workflow), to the `gh-pages` branch.
+5. After deploy, `Smoke test production` retries 6 times (10s apart) and checks the index is 200 + `text/html`, its `assets/index-*.js` matches this build, that asset is 200 + javascript, and `/logo.svg` is 200 + `image/svg+xml`; a mismatch fails the workflow. A bare 200 is not trusted because Cloudflare can serve a fallback page.
+6. Roll back with `git revert <bad-commit> && git push` and let CI rebuild. Don't hand-edit `gh-pages`; last resort is `git push --force-with-lease origin <deploy-sha>:gh-pages`.
 
 ## Configuration
 
