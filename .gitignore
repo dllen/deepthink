@@ -76,10 +76,9 @@ src/assets/static-data-*.json
 python_scripts/backups/
 
 # Database files
-# NOTE: python_scripts/web_content.db is ignored by the *.db pattern below
-# but force-tracked; python_scripts/web_content.db.enc is also tracked.
-# The build/CI reads only the plaintext DB — the .enc file is unused by both.
-# See AGENTS.md / dev.md "Database Content Security" for context.
+# NOTE: the plaintext python_scripts/web_content.db is intentionally NOT tracked.
+# Only the encrypted copy (web_content.db.enc) is committed; CI decrypts it with
+# the SQLITE_KEY secret. Local dev keeps the plaintext, ignored by *.db below.
 *.db
 *.sqlite
 *.sqlite3
