@@ -13,8 +13,6 @@ import initSqlJs from 'sql.js';
 import { generate } from './generate.mjs';
 import { readGeneratedRows } from './generated-data.mjs';
 
-const silentLog = { log() {}, warn() {}, error() {} };
-
 let sqlPromise = null;
 function getSql() {
   if (!sqlPromise) sqlPromise = initSqlJs();
@@ -90,7 +88,7 @@ test('正常生成：内容一致、按时间与 id 倒序、重复生成字节�
     makeRow({ id: 2, created_time: '2026-01-02 00:00:00', original_url: 'https://example.com/2' }),
   ]);
 
-  const first = await generate({ ...paths, log: silentLog });
+  const first = await generate({ ...paths });
   assert.equal(first.ok, true, first.errors.join('\n'));
   assert.equal(first.count, 3);
   assert.equal(first.previousCount, null);
@@ -104,7 +102,7 @@ test('正常生成：内容一致、按时间与 id 倒序、重复生成字节�
   const firstJsonBytes = fs.readFileSync(paths.jsonPath);
   const firstJsBytes = fs.readFileSync(paths.jsPath);
 
-  const second = await generate({ ...paths, log: silentLog });
+  const second = await generate({ ...paths });
   assert.equal(second.ok, true, second.errors.join('\n'));
   assert.equal(second.previousCount, 3);
   assert.deepEqual(fs.readFileSync(paths.jsonPath), firstJsonBytes);
@@ -114,7 +112,7 @@ test('正常生成：内容一致、按时间与 id 倒序、重复生成字节�
 test('DB 不存在或损坏：ok:false 且不写文件', async (t) => {
   const paths = tempPaths(t);
 
-  const missing = await generate({ ...paths, log: silentLog });
+  const missing = await generate({ ...paths });
   assert.equal(missing.ok, false);
   assert.match(missing.errors.join('\n'), /数据库不存在/);
   assert.match(missing.errors.join('\n'), /web_content\.db/);
@@ -122,7 +120,7 @@ test('DB 不存在或损坏：ok:false 且不写文件', async (t) => {
   assert.equal(fs.existsSync(paths.jsPath), false);
 
   fs.writeFileSync(paths.dbPath, 'this is definitely not a sqlite database');
-  const corrupt = await generate({ ...paths, log: silentLog });
+  const corrupt = await generate({ ...paths });
   assert.equal(corrupt.ok, false);
   assert.match(corrupt.errors.join('\n'), /读取数据库失败/);
   assert.match(corrupt.errors.join('\n'), /web_content\.db/);
@@ -134,7 +132,7 @@ test('空表：ok:false 且不写文件', async (t) => {
   const paths = tempPaths(t);
   await createDb(paths.dbPath, []);
 
-  const result = await generate({ ...paths, log: silentLog });
+  const result = await generate({ ...paths });
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /为空/);
   assert.equal(fs.existsSync(paths.jsonPath), false);
@@ -147,7 +145,7 @@ test('坏行（缺 category）：ok:false 且已有输出不变', async (t) => {
   fs.writeFileSync(paths.jsonPath, 'OLD JSON\n');
   fs.writeFileSync(paths.jsPath, 'export default [];\n');
 
-  const result = await generate({ ...paths, log: silentLog });
+  const result = await generate({ ...paths });
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /category 非法/);
   assert.equal(fs.readFileSync(paths.jsonPath, 'utf-8'), 'OLD JSON\n');
@@ -171,14 +169,14 @@ test('缩水拦截；allowShrink 放行并记录 warning', async (t) => {
     original_url: `https://example.com/${index + 1}`,
   })));
 
-  const blocked = await generate({ ...paths, log: silentLog });
+  const blocked = await generate({ ...paths });
   assert.equal(blocked.ok, false);
   assert.match(blocked.errors.join('\n'), /缩水阈值/);
   assert.equal(fs.readFileSync(paths.jsPath, 'utf-8'), previousJs);
   assert.equal(fs.readFileSync(paths.jsonPath, 'utf-8'), previousJson);
   assertNoTemps(paths.jsonPath, paths.jsPath);
 
-  const allowed = await generate({ ...paths, allowShrink: true, log: silentLog });
+  const allowed = await generate({ ...paths, allowShrink: true });
   assert.equal(allowed.ok, true, allowed.errors.join('\n'));
   assert.equal(allowed.count, 5);
   assert.equal(allowed.previousCount, 10);
@@ -195,7 +193,7 @@ test('上一版无法解析：默认抛错且不写；allowShrink 放行', async
   fs.writeFileSync(paths.jsonPath, 'OLD JSON\n');
 
   await assert.rejects(
-    () => generate({ ...paths, log: silentLog }),
+    () => generate({ ...paths }),
     (error) => {
       assert.match(error.message, /无法解析上一版/);
       assert.match(error.message, /--allow-shrink/);
@@ -206,12 +204,64 @@ test('上一版无法解析：默认抛错且不写；allowShrink 放行', async
   assert.equal(fs.readFileSync(paths.jsonPath, 'utf-8'), 'OLD JSON\n');
   assertNoTemps(paths.jsonPath, paths.jsPath);
 
-  const allowed = await generate({ ...paths, allowShrink: true, log: silentLog });
+  const allowed = await generate({ ...paths, allowShrink: true });
   assert.equal(allowed.ok, true, allowed.errors.join('\n'));
   assert.equal(allowed.previousCount, null);
   assert.match(allowed.warnings.join('\n'), /无法解析上一版/);
   assert.equal(readGeneratedRows(paths.jsPath).length, 1);
   assert.equal(readGeneratedRows(paths.jsonPath).length, 1);
+});
+
+test('上一版不是数组：默认抛错且不写；allowShrink 放行', async (t) => {
+  const paths = tempPaths(t);
+  await createDb(paths.dbPath, [makeRow()]);
+  const nonArray = 'export default {};\n';
+  fs.writeFileSync(paths.jsPath, nonArray);
+  fs.writeFileSync(paths.jsonPath, 'OLD JSON\n');
+
+  await assert.rejects(
+    () => generate({ ...paths }),
+    (error) => {
+      assert.match(error.message, /无法解析上一版/);
+      assert.match(error.message, /生成物不是数组/);
+      assert.match(error.message, /--allow-shrink/);
+      return true;
+    },
+  );
+  assert.equal(fs.readFileSync(paths.jsPath, 'utf-8'), nonArray);
+  assert.equal(fs.readFileSync(paths.jsonPath, 'utf-8'), 'OLD JSON\n');
+  assertNoTemps(paths.jsonPath, paths.jsPath);
+
+  const allowed = await generate({ ...paths, allowShrink: true });
+  assert.equal(allowed.ok, true, allowed.errors.join('\n'));
+  assert.equal(allowed.previousCount, null);
+  assert.match(allowed.warnings.join('\n'), /无法解析上一版/);
+  assert.equal(readGeneratedRows(paths.jsPath).length, 1);
+  assert.equal(readGeneratedRows(paths.jsonPath).length, 1);
+});
+
+test('warning 只返回给调用方，库内不重复打印', async (t) => {
+  const paths = tempPaths(t);
+  await createDb(paths.dbPath, [makeRow()]);
+  fs.writeFileSync(paths.jsPath, 'export default {};\n');
+  fs.writeFileSync(paths.jsonPath, 'OLD JSON\n');
+
+  const printed = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => printed.push(args.join(' '));
+  let allowed;
+  try {
+    allowed = await generate({ ...paths, allowShrink: true });
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(allowed.ok, true, allowed.errors.join('\n'));
+  // 库内不再 log.warn；CLI 统一打印 result.warnings，每条仅一次。
+  assert.equal(allowed.warnings.length, 1, allowed.warnings.join('\n'));
+  assert.match(allowed.warnings[0], /无法解析上一版/);
+  assert.match(allowed.warnings[0], /生成物不是数组/);
+  assert.deepEqual(printed, []);
 });
 
 test('写入失败：抛错、json 回滚、无 .tmp 残留', async (t) => {
@@ -224,7 +274,7 @@ test('写入失败：抛错、json 回滚、无 .tmp 残留', async (t) => {
   fs.mkdirSync(jsAsDirectory);
 
   await assert.rejects(
-    () => generate({ ...paths, jsPath: jsAsDirectory, log: silentLog }),
+    () => generate({ ...paths, jsPath: jsAsDirectory }),
     /写入失败.*回滚.*重跑/,
   );
 

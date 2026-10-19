@@ -57,7 +57,7 @@ export function writePairAtomic({ jsonPath, jsPath, jsonContent, jsContent }) {
  * 上一版无法解析且未 allowShrink 时抛错；写入失败时抛错（已尽量回滚）。
  */
 export async function generate({
-  dbPath, jsonPath, jsPath, allowShrink = false, log = console,
+  dbPath, jsonPath, jsPath, allowShrink = false,
 }) {
   const errors = [];
   const warnings = [];
@@ -80,9 +80,7 @@ export async function generate({
           `无法解析上一版 ${jsPath}（${error.message}）；确认覆盖请加 --allow-shrink`,
         );
       }
-      const warning = `无法解析上一版 ${jsPath}（${error.message}），已按 --allow-shrink 忽略并继续`;
-      warnings.push(warning);
-      log.warn(`⚠️  ${warning}`);
+      warnings.push(`无法解析上一版 ${jsPath}（${error.message}），已按 --allow-shrink 忽略并继续`);
       previous = null;
     }
   }
