@@ -30,6 +30,8 @@
 2. Restore the plaintext database (fresh clone, or after deleting it):
 
    ```bash
+   # 脚本只读取环境变量，不会自动加载 .env
+   set -a; . ./.env; set +a
    ./scripts/decrypt-db.sh
    ```
 

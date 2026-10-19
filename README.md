@@ -39,7 +39,7 @@ scripts/                    # generate-data.js、check-data.mjs、加密脚本
 要求 Node.js ≥ 20.0.0。
 
 ```bash
-npm install     # 安装依赖
+npm ci          # 安装依赖（严格按 package-lock.json；npm install 用于更新依赖）
 npm run dev     # 启动开发服务器
 npm run build   # 构建生产版本
 npm run preview # 预览生产构建
@@ -51,7 +51,7 @@ npm run lint    # ESLint
 ## 数据从哪来
 
 - 真源：`python_scripts/web_content.db`（SQLite，本地明文，**不被 git 跟踪**）
-- 仓库唯一数据副本：`python_scripts/web_content.db.enc`（加密，已跟踪）；fresh clone 后先运行 `./scripts/decrypt-db.sh` 恢复明文，才能本地 `npm run gen:static-js` / `npm run check:data`
+- 仓库唯一数据副本：`python_scripts/web_content.db.enc`（加密，已跟踪）；fresh clone 后先运行 `./scripts/decrypt-db.sh` 恢复明文，才能本地 `npm run gen:static-js` / `npm run check:data`。脚本只读环境变量、不会自动加载 `.env`，请先 `set -a; . ./.env; set +a` 或 `export SQLITE_KEY=...`
 - CI 用仓库 secret `SQLITE_KEY` 执行 `./scripts/decrypt-db.sh` 后再校验
 - 生成：`npm run gen:static-js` 把 DB 导出为 `src/assets/static-data.json` 与 `src/assets/static-data.js`
 - 校验：`npm run check:data` 确认生成物与 DB 一致（CI 在 build 前强制执行；提交前务必跑）

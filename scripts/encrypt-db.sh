@@ -16,9 +16,19 @@ if [ ! -f "$DB_FILE" ]; then
   exit 1
 fi
 
+# 先写到临时文件：加密失败时不会破坏现有的 .enc。
+TMP_FILE="${ENC_FILE}.tmp"
+cleanup() {
+  rm -f "$TMP_FILE"
+}
+trap cleanup EXIT
+
 echo "Encrypting $DB_FILE -> $ENC_FILE ..."
 openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
-  -in "$DB_FILE" -out "$ENC_FILE" -pass env:SQLITE_KEY
+  -in "$DB_FILE" -out "$TMP_FILE" -pass env:SQLITE_KEY
+
+mv "$TMP_FILE" "$ENC_FILE"
+trap - EXIT
 
 echo "Encryption successful: $ENC_FILE"
 echo "提交 ${ENC_FILE}；不要提交明文 ${DB_FILE}（已在 .gitignore 中）。"

@@ -53,7 +53,9 @@ deepthink/
 # Python dependencies
 pip install -r python_scripts/requirements.txt
 
-# Restore the ignored plaintext DB from the tracked encrypted copy (needs SQLITE_KEY)
+# Restore the ignored plaintext DB from the tracked encrypted copy (needs SQLITE_KEY).
+# The scripts read SQLITE_KEY from the environment only (they do not load .env):
+set -a; . ./.env; set +a   # or: export SQLITE_KEY=...
 ./scripts/decrypt-db.sh
 
 # Re-encrypt after changing the DB, then commit python_scripts/web_content.db.enc
