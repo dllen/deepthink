@@ -33,7 +33,14 @@ const ContentCard = ({ item }) => {
         </div>
         
         <h3 className="text-lg font-bold text-slate-800 mb-3 leading-snug group-hover:text-indigo-600 transition-colors break-words">
-          {item.title}
+          <a
+            href={item.original_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+          >
+            {item.title}
+          </a>
         </h3>
         
         <p className="text-slate-600 text-sm mb-5 flex-grow leading-relaxed whitespace-pre-wrap break-words">
@@ -42,10 +49,10 @@ const ContentCard = ({ item }) => {
         
         <div className="mt-auto pt-4 border-t border-slate-50">
           <div className="flex flex-wrap gap-1.5">
-            {item.tags.split(',').map((tag, index) => (
+            {(item.tags || '').split(',').filter(Boolean).map((tag, index) => (
               <span 
-                key={index}
-                className="text-[11px] font-medium text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-2 py-1 rounded transition-colors cursor-default"
+                key={`${tag}-${index}`}
+                className="text-[11px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-2 py-1 rounded transition-colors cursor-default"
               >
                 #{tag.trim()}
               </span>

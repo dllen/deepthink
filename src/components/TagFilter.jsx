@@ -18,6 +18,7 @@ const TagFilter = ({ tags, selectedTags, onTagToggle, onClearFilters }) => {
           <button
             key={tag}
             onClick={() => onTagToggle(tag)}
+            aria-label={`${selectedTags.includes(tag) ? '移除' : '筛选'}标签 ${tag}`}
             aria-pressed={selectedTags.includes(tag)}
             className={`tag-button text-sm px-4 py-1.5 rounded-full transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
               selectedTags.includes(tag)
@@ -42,7 +43,8 @@ const TagFilter = ({ tags, selectedTags, onTagToggle, onClearFilters }) => {
                 {tag}
                 <button
                   onClick={() => onTagToggle(tag)}
-                  className="ml-1.5 text-indigo-400 hover:text-indigo-600 focus:outline-none"
+                  aria-label={`移除标签 ${tag}`}
+                  className="ml-1.5 text-indigo-400 hover:text-indigo-600 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                     <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
