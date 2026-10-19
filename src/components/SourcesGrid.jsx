@@ -25,9 +25,11 @@ const SourcesGrid = ({ query }) => {
       {/* 卡片网格 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {last30daysSources.map((source) => {
-          const searchUrl = query.trim()
-            ? buildSearchUrl(query, source.url)
-            : source.url.replace('{q}', '');
+          const trimmedQuery = query.trim();
+          // 空 query 时直接打开平台首页，避免落到带空搜索词的路径
+          const searchUrl = trimmedQuery
+            ? buildSearchUrl(trimmedQuery, source.url)
+            : `${new window.URL(source.url).origin}/`;
 
           return (
             <a

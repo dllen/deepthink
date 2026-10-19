@@ -7,6 +7,39 @@ const ReportModal = ({ report, onClose }) => {
   const closeRef = useRef(null);
   const openerRef = useRef(null);
 
+  // 用 HEAD 预检报告页：iframe 的 onError 在多数浏览器不触发，
+  // 仅靠 onLoad/onError 无法让失败态可达。HEAD 失败、异常或 12 秒超时均置 error。
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new window.AbortController();
+    const timer = window.setTimeout(() => {
+      controller.abort();
+      if (!cancelled) {
+        // 仍在 loading 才判失败，避免覆盖已就绪的 iframe
+        setStatus((prev) => (prev === 'loading' ? 'error' : prev));
+      }
+    }, 12000);
+
+    window
+      .fetch(report.path, { method: 'HEAD', cache: 'no-store', signal: controller.signal })
+      .then((response) => {
+        if (cancelled) return;
+        if (!response.ok) setStatus('error');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStatus('error');
+      });
+    // 定时器保留到弹窗关闭：HEAD 成功但 iframe 迟迟不触发 onLoad 时，
+    // 12 秒后仍能由上面的函数式 set 判定失败（已 ready/error 则保持不变）。
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [report.path]);
+
   useEffect(() => {
     // 记录打开弹窗前的焦点元素，关闭时归还
     openerRef.current = document.activeElement;
@@ -19,8 +52,9 @@ const ReportModal = ({ report, onClose }) => {
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
 
+      // iframe 不参与 Tab 序列（tabIndex={-1}），避免键盘焦点进入内嵌文档后父页失联
       const focusables = dialogRef.current.querySelectorAll(
-        'a[href], button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])',
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
       );
       if (focusables.length === 0) return;
 
@@ -35,10 +69,20 @@ const ReportModal = ({ report, onClose }) => {
       }
     };
 
+    // 焦点守卫：弹窗打开期间，焦点一旦逃出 dialog 就拉回关闭按钮
+    const handleFocusIn = (event) => {
+      if (!dialogRef.current) return;
+      if (!dialogRef.current.contains(event.target)) {
+        closeRef.current?.focus();
+      }
+    };
+
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
       document.body.style.overflow = '';
       openerRef.current?.focus?.();
     };
@@ -109,21 +153,28 @@ const ReportModal = ({ report, onClose }) => {
         {/* iframe 内容区 */}
         <div className="relative flex-1 bg-white">
           {status === 'loading' && (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500">
+            <div role="status" className="absolute inset-0 flex items-center justify-center text-slate-500">
               报告加载中…
             </div>
           )}
           {status === 'error' && (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500">
+            <div role="alert" className="absolute inset-0 flex items-center justify-center text-slate-500">
               报告加载失败，请尝试「新窗口」打开
             </div>
           )}
+          {/*
+            P3-3（有意保留的安全取舍）：sandbox 未开放顶层导航，
+            报告内部的外链在弹窗内不可点，请使用右上角「新窗口」打开。
+            已知限制：用户用鼠标点击 iframe 内部后，父页收不到 keydown，Esc 不生效；
+            这是 sandbox/iframe 的固有限制，键盘用户可通过关闭按钮退出。
+          */}
           <iframe
             src={report.path}
             title={report.title}
+            tabIndex={-1}
             className="w-full h-full border-0"
             sandbox="allow-scripts"
-            onLoad={() => setStatus('ready')}
+            onLoad={() => setStatus((prev) => (prev === 'error' ? 'error' : 'ready'))}
             onError={() => setStatus('error')}
           />
         </div>

@@ -90,9 +90,7 @@ const App = () => {
     }
 
     return result;
-    // data 是模块级静态数据，显式列入依赖以表达派生来源
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, fuse, searchQuery, selectedCategory, selectedTags]);
+  }, [fuse, searchQuery, selectedCategory, selectedTags]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
