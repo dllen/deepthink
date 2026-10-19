@@ -8,7 +8,9 @@ export const DB_COLUMNS = [
 
 export async function readDatabaseRows(dbPath) {
   if (!fs.existsSync(dbPath)) {
-    throw new Error(`数据库不存在: ${dbPath}`);
+    throw new Error(
+      `数据库不存在: ${dbPath}（fresh clone 或本地缺少明文时，先运行 ./scripts/decrypt-db.sh）`,
+    );
   }
   let db;
   try {
