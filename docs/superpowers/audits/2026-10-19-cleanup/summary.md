@@ -1,6 +1,7 @@
 # 内容清理记录（2026-10-19）
 
-一次性的数据清理：删除抓取噪声与重复内容，并给抓取脚本加入库过滤规则，防止再次发生。
+一次性的数据清理（两轮）：删除抓取噪声与重复内容，并给抓取脚本加入库过滤规则，防止再次发生。
+最终 **224 → 179 条**（第一轮 186，第二轮合并同标题多行到 179）。
 
 ## 决策规则（用户确认）
 
@@ -24,13 +25,24 @@
 
 删除前备份：`python_scripts/backups/web_content-cleanup-20261019-130729.db`（本地、gitignored、chmod 600）。
 
+## 删除明细·第二轮（7 行，186 → 179）
+
+| 分组 | 行数 | id |
+| --- | --- | --- |
+| wiki 首页导航页（3 份） | 3 | 2, 123, 126 |
+| `chuan.us` 首页与 `/blog` 重复（内容同为 7,673 字） | 1 | 6（保留 id 1 `https://chuan.us/`） |
+| `笑来搜` 4 页合并为 1 条（保留搜索入口） | 3 | 37, 38, 39（保留 id 3 `https://xiaolai.co/search`） |
+
+备份：`python_scripts/backups/web_content-cleanup2-20261019-142538.db`。删除后无同标题多行；
+`original_url` 仅剩 1 组（488/489，见「已知遗留」）。
+
 ## 清理后状态
 
-- `content_summary` **186 行**；`PRAGMA integrity_check` = ok；id 唯一；`category` 无缺失；`uid` 无 NULL。
-- 分类分布：文章 111 / 文摘 35 / 工具 20 / 言论 8 / 资源 6 / 科技动态 4 / 图片 2。
-- 来源分布：legacy-default 86 / llm 68 / manual 32。
-- 生成物：`src/assets/static-data.json` + `static-data.js` 各 186 条（`npm run gen:static-js -- --allow-shrink`，224 → 186 = −17% 触发缩水保护，已显式放行）。
-- 加密副本：`python_scripts/web_content.db.enc` 2,101,280 B；解密往返 sha256 与明文一致（`cee6db0c64fb74bd23c53d105c8cda3de92aeff3ab1e8862d1ed7f1eaf23d897`）。
+- `content_summary` **179 行**；`PRAGMA integrity_check` = ok；id 唯一；`category` 无缺失；`uid` 无 NULL。
+- 分类分布：文章 104 / 文摘 35 / 工具 20 / 言论 8 / 资源 6 / 科技动态 4 / 图片 2。
+- 来源分布：legacy-default 79 / llm 68 / manual 32。
+- 生成物：`src/assets/static-data.json` + `static-data.js` 各 179 条（第二轮 186 → 179 = −3.8%，未触发缩水保护）。
+- 加密副本：`python_scripts/web_content.db.enc` 2,072,608 B；解密往返 sha256 与明文一致（`fac72383607c9a453dc20df8275ac33013534d7cc144115652a291c83569e9f6`）。
 
 ## 防止复发（代码改动）
 
@@ -48,13 +60,12 @@
 ## 验证证据
 
 - `python3 -m pytest test_category_classifier.py test_set_category.py test_migrate_category.py test_ingestion_category.py test_crawler_filters.py test_modular.py -q` → 82 passed。
-- `npm run test:data` → 23/23 pass；`npm run check:data` → 「DB 与生成物一致，共 186 条」。
-- `npm run lint` → 0 problems；`npm run build` → 成功（`dist/assets/index-dd97e602.js` 287.45 kB / gzip 125.58 kB）。
-- 解密 `.enc` 后行数 186、sha256 与明文一致。
+- `npm run test:data` → 23/23 pass；`npm run check:data` → 「DB 与生成物一致，共 179 条」。
+- `npm run lint` → 0 problems；`npm run build` → 成功（`dist/assets/index-5b647c31.js` 284.95 kB / gzip 124.14 kB）。
+- 解密 `.enc` 后行数 179、sha256 与明文一致（`fac72383…`）。
 
-## 已知遗留（本轮未处理）
+## 已知遗留
 
-- `chuan.us`（id 1、6）、`笑来搜`（id 3/37/38/39，4 个不同页面）、`首页 - 个人维基`（id 2/123/126）
-  仍是同标题多行；用户选择的清理范围只到 wiki 文章与周刊。
-- `original_url` 重复 1 组：id 488/489 是同一期周刊（issue 410）里的两篇文章，指向同一 URL，
-  生成器会给出警告但不阻塞。若要消除，需人工改其中一条的 `original_url`。
+- `original_url` 重复 1 组：id 488/489 是同一期周刊（issue 410）里的两张片段卡
+  （「你需要知道的 AI 三种机制」与「公开演讲的窍门」），来源页相同所以 URL 相同。
+  这不是重复内容，属预期；生成器会持续给出 warning 但不阻塞构建。未伪造锚点 URL 去消除提示。
