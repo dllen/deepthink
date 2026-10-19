@@ -70,7 +70,7 @@ htmlcov/
 *.tar.zst
  
 # Generated assets
-src/assets/static-data*.json
+src/assets/static-data-*.json
 
 # One-off migration backups and reports (local only)
 python_scripts/backups/

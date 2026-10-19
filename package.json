@@ -8,8 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src scripts --max-warnings=999",
-    "gen:static-js": "node scripts/generate-data.js",
-    "gen:static-js:from-json": "node scripts/generate-data.js --from-json"
+    "gen:static-js": "node scripts/generate-data.js"
   },
   "engines": {
     "node": ">=20.0.0"
