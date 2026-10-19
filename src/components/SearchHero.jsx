@@ -2,7 +2,7 @@ import { buildAllSearchUrls } from '../utils/searchUtils';
 import { last30daysSources } from '../assets/last30days-sources';
 
 const SearchHero = ({ query, onQueryChange }) => {
-  const searchUrls = query.trim() ? buildAllSearchUrls(query) : {};
+  const searchUrls = query.trim() ? buildAllSearchUrls(query.trim()) : {};
 
   const handleSubmit = (event) => {
     event.preventDefault();

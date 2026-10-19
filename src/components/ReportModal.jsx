@@ -24,11 +24,14 @@ const ReportModal = ({ report, onClose }) => {
       .fetch(report.path, { method: 'HEAD', cache: 'no-store', signal: controller.signal })
       .then((response) => {
         if (cancelled) return;
-        if (!response.ok) setStatus('error');
+        if (!response.ok) {
+          // 晚到的 HEAD 失败不应覆盖已就绪（或已判定失败）的 iframe 状态
+          setStatus((prev) => (prev === 'loading' ? 'error' : prev));
+        }
       })
       .catch(() => {
         if (cancelled) return;
-        setStatus('error');
+        setStatus((prev) => (prev === 'loading' ? 'error' : prev));
       });
     // 定时器保留到弹窗关闭：HEAD 成功但 iframe 迟迟不触发 onLoad 时，
     // 12 秒后仍能由上面的函数式 set 判定失败（已 ready/error 则保持不变）。

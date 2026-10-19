@@ -19,7 +19,7 @@ const SourcesGrid = ({ query }) => {
       </div>
 
       <p className="text-xs text-slate-400 mb-3">
-        输入关键词后点击卡片，直接打开该平台的搜索结果
+        输入关键词后点击卡片可打开该平台搜索结果；未输入时打开平台首页
       </p>
 
       {/* 卡片网格 */}
