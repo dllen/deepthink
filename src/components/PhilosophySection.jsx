@@ -56,7 +56,7 @@ const PhilosophySection = () => {
           </li>
           <li className="flex items-start gap-2 text-slate-600">
             <span className="text-indigo-500 mt-0.5">•</span>
-            <span>使用 <strong>"X vs Y"</strong> 格式进行对比搜索</span>
+            <span>使用 <strong>{'"X vs Y"'}</strong> 格式进行对比搜索</span>
           </li>
           <li className="flex items-start gap-2 text-slate-600">
             <span className="text-indigo-500 mt-0.5">•</span>

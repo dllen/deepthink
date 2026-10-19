@@ -26,12 +26,3 @@ body {
 .tag-button {
   transition: all 0.2s ease;
 }
-
-.tag-button.active {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.tag-button:not(.active):hover {
-  background-color: #e5e7eb;
-}
