@@ -36,6 +36,8 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
+from category_classifier import DEFAULT_CATEGORY, classify_one
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -216,7 +218,9 @@ CREATE TABLE IF NOT EXISTS content_summary (
     original_url TEXT    NOT NULL,
     tags         TEXT,
     uid          TEXT,
-    content      TEXT
+    content      TEXT,
+    category     TEXT,
+    category_source TEXT DEFAULT 'default'
 );
 CREATE TABLE IF NOT EXISTS manual_content (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -236,8 +240,9 @@ MAX_CONTENT_LEN = 100_000  # cap per-row stored body to keep DB compact
 def ensure_schema(path: Path) -> sqlite3.Connection:
     """Connect and make sure the schema exists. Never deletes rows.
 
-    Adds the `content` column to existing content_summary tables via
-    ALTER TABLE on subsequent runs (SQLite has no IF NOT EXISTS for columns).
+    Adds the `content` / `category` / `category_source` columns to existing
+    content_summary tables via ALTER TABLE on subsequent runs (SQLite has no
+    IF NOT EXISTS for columns).
     """
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA_SQL)
@@ -246,6 +251,12 @@ def ensure_schema(path: Path) -> sqlite3.Connection:
     cols = [row[1] for row in cur.fetchall()]
     if "content" not in cols:
         cur.execute("ALTER TABLE content_summary ADD COLUMN content TEXT")
+    if "category" not in cols:
+        cur.execute("ALTER TABLE content_summary ADD COLUMN category TEXT")
+    if "category_source" not in cols:
+        cur.execute(
+            "ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default'"
+        )
     conn.commit()
     return conn
 
@@ -286,10 +297,11 @@ def insert_row(
             return row[0] if row else None
         # Row didn't exist yet — fall through to insert
 
+    category = classify_one(title, summary)
     cur.execute(
         "INSERT OR IGNORE INTO content_summary "
-        "(title, created_time, summary, original_url, tags, uid, content) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "(title, created_time, summary, original_url, tags, uid, content, category, category_source) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             title,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -298,6 +310,8 @@ def insert_row(
             tags,
             uid,
             body,
+            category or DEFAULT_CATEGORY,
+            "llm" if category else "default",
         ),
     )
     conn.commit()

@@ -23,6 +23,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+from category_classifier import DEFAULT_CATEGORY, classify_one
+
 DB_PATH = "web_content.db"
 PARAMS_PATH = "grab_params.json"
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
@@ -57,7 +59,8 @@ def ensure_schema(conn):
     """Create content_summary table + uid dedup index if missing.
 
     Schema (current):
-        id, title, created_time, summary, original_url, tags, uid, content
+        id, title, created_time, summary, original_url, tags, uid, content,
+        category, category_source
     The `content` column holds the full extracted page text as a backup
     so we don't lose the source if the URL goes offline.
     """
@@ -72,7 +75,9 @@ def ensure_schema(conn):
             original_url TEXT NOT NULL,
             tags TEXT,
             uid TEXT,
-            content TEXT
+            content TEXT,
+            category TEXT,
+            category_source TEXT DEFAULT 'default'
         )
         """
     )
@@ -82,6 +87,12 @@ def ensure_schema(conn):
         cur.execute("ALTER TABLE content_summary ADD COLUMN uid TEXT")
     if "content" not in cols:
         cur.execute("ALTER TABLE content_summary ADD COLUMN content TEXT")
+    if "category" not in cols:
+        cur.execute("ALTER TABLE content_summary ADD COLUMN category TEXT")
+    if "category_source" not in cols:
+        cur.execute(
+            "ALTER TABLE content_summary ADD COLUMN category_source TEXT DEFAULT 'default'"
+        )
     cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_uid ON content_summary (uid)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_tags ON content_summary (tags)")
     conn.commit()
@@ -221,12 +232,25 @@ def save_to_db(conn, url: str, title: str, summary: str, tags: str, content: str
         body = body[:MAX_CONTENT_LEN] + "\n\n[…truncated at MAX_CONTENT_LEN]"
 
     created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    category = classify_one(title, summary)
+    category_source = "llm" if category else "default"
     cur.execute(
         """
-        INSERT INTO content_summary (title, created_time, summary, original_url, tags, uid, content)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO content_summary
+        (title, created_time, summary, original_url, tags, uid, content, category, category_source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (title, created_time, summary, url, tags, uid, body),
+        (
+            title,
+            created_time,
+            summary,
+            url,
+            tags,
+            uid,
+            body,
+            category or DEFAULT_CATEGORY,
+            category_source,
+        ),
     )
     conn.commit()
     print(f"  ✓ Saved id={cur.lastrowid} (body {len(body)} chars)")
