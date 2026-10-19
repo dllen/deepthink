@@ -142,3 +142,30 @@ def test_batch_accepts_numeric_string_index():
     ])
     out = classify_batch([{"title": "a"}], client=FakeClient(payload))
     assert out == ["图片"]
+
+
+def test_make_client_sets_timeout_and_retry_budget(monkeypatch):
+    import sys
+    import types
+
+    import category_classifier
+
+    recorded = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            recorded["kwargs"] = kwargs
+            self.kwargs = kwargs
+
+    fake_module = types.ModuleType("openai")
+    fake_module.OpenAI = FakeOpenAI
+    monkeypatch.setitem(sys.modules, "openai", fake_module)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(category_classifier, "_CLIENT", None)
+    monkeypatch.setattr(category_classifier, "_CLIENT_READY", False)
+
+    client = category_classifier.make_client()
+
+    assert isinstance(client, FakeOpenAI)
+    assert recorded["kwargs"]["timeout"] == 20
+    assert recorded["kwargs"]["max_retries"] == 1
