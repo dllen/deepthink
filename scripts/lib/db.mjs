@@ -10,11 +10,12 @@ export async function readDatabaseRows(dbPath) {
   if (!fs.existsSync(dbPath)) {
     throw new Error(`数据库不存在: ${dbPath}`);
   }
-  const SQL = await initSqlJs();
-  const db = new SQL.Database(fs.readFileSync(dbPath));
+  let db;
   try {
+    const SQL = await initSqlJs();
+    db = new SQL.Database(fs.readFileSync(dbPath));
     const result = db.exec(
-      'SELECT id, title, created_time, summary, original_url, tags, category ' +
+      `SELECT ${DB_COLUMNS.join(', ')} ` +
       'FROM content_summary ORDER BY created_time DESC, id DESC',
     );
     if (!result.length) return [];
@@ -22,7 +23,9 @@ export async function readDatabaseRows(dbPath) {
     return values.map((row) =>
       Object.fromEntries(columns.map((column, index) => [column, row[index]])),
     );
+  } catch (error) {
+    throw new Error(`读取数据库失败 (${dbPath}): ${error.message}`);
   } finally {
-    db.close();
+    if (db) db.close();
   }
 }
