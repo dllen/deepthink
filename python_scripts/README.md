@@ -135,7 +135,7 @@ python test_system.py
 - `uid`: Dedupe key (md5)
 - `content`: Full text (when backfilled)
 - `category`: One of the seven categories
-- `category_source`: `llm` / `manual` / `default`
+- `category_source`: `manual`（人工修正）/ `llm`（LLM 分类）/ `legacy-default`（2026-08 七分类引入时批量默认的文章）/ `default`（分类失败时的兜底）
 
 This table is the single source of truth for the site data. The site generator only exports `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, and `category`.
 
@@ -148,7 +148,7 @@ This table is the single source of truth for the site data. The site generator o
 - `summary`: Generated summary
 - `tags`: Comma-separated tags
 
-This is a legacy table written by the old `WebContentExtractor`. Its rows were imported into `content_summary.content` during the category migration, and it is no longer read by the site data generator.
+This is a legacy table written by the old `WebContentExtractor`; it currently has 0 rows and is no longer read by the site data generator. The category migration did not copy its rows into `content_summary.content` — it instead imported 32 hand-written entries from `src/assets/static-data.js` into `content_summary` (with `content` left empty and `category_source='manual'`).
 
 ## Extending the System
 

@@ -49,7 +49,7 @@ python_scripts/web_content.db ──scripts/generate-data.js──▶ src/assets
 ### Frontend
 
 - `src/App.jsx` owns all state: `items`, category (single-select), tags (multi-select), search (Fuse.js). Filtering is entirely client-side in `filterData()`.
-- `src/utils/categories.js` — the 7 mutually-exclusive categories (阮一峰《科技爱好者周刊》 structure): 科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论. Category filtering is strict equality; `ContentCard` falls back to the 文章 badge only for rows lacking `category`.
+- `src/utils/categories.js` — the 7 mutually-exclusive categories (阮一峰《科技爱好者周刊》 structure): 科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论. Category filtering is strict equality; rows lacking `category` match no category filter, and only the badge/color helper `getCategoryStyle` falls back to 文章's colors (the badge itself is not rendered without a category).
 - Components: `SearchBar`, `CategoryFilter`, `TagFilter`, `WaterfallGrid` → `ContentCard`, `ReportsPanel` → `ReportModal`.
 - Reports are standalone static HTML pages under `public/`, listed in `src/assets/static-reports.js` — they are **not** part of the SQLite data.
 
