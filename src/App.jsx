@@ -134,21 +134,25 @@ const App = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* 头部 */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-indigo-100 shadow-sm py-4 px-6 transition-all duration-300">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-indigo-100 shadow-sm py-3 px-4 sm:px-6 transition-all duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="DeepThink Logo" className="h-10 w-10 rounded-lg ring-1 ring-indigo-200 bg-white/70 p-1.5" />
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-sky-500">
+            <div className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-sky-500">
               观念棱镜
-            </h1>
-            <p className="text-slate-500 text-xs mt-1">深度思考 • 智慧洞见</p>
+            </div>
+            <p className="hidden sm:block text-slate-500 text-xs mt-1">深度思考 • 智慧洞见</p>
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+          <div role="tablist" aria-label="视图切换" className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
             <button
+              role="tab"
+              id="tab-browse"
+              aria-selected={currentView === VIEW_BROWSE}
+              aria-controls="panel-browse"
               onClick={() => switchView(VIEW_BROWSE)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-md font-medium transition-all ${
                 currentView === VIEW_BROWSE
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-800'
@@ -157,8 +161,12 @@ const App = () => {
               内容浏览
             </button>
             <button
+              role="tab"
+              id="tab-search"
+              aria-selected={currentView === VIEW_SEARCH}
+              aria-controls="panel-search"
               onClick={() => switchView(VIEW_SEARCH)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-md font-medium transition-all ${
                 currentView === VIEW_SEARCH
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-800'
@@ -176,7 +184,8 @@ const App = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         {currentView === VIEW_BROWSE ? (
-          <>
+          <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse">
+            <h1 className="sr-only">观念棱镜 · 内容浏览</h1>
             {/* 分析报告栏目 */}
             <ReportsPanel />
 
@@ -233,9 +242,11 @@ const App = () => {
                 </button>
               </div>
             )}
-          </>
+          </div>
         ) : (
-          <Last30daysPage query={searchPageQuery} onQueryChange={setSearchPageQuery} />
+          <div id="panel-search" role="tabpanel" aria-labelledby="tab-search">
+            <Last30daysPage query={searchPageQuery} onQueryChange={setSearchPageQuery} />
+          </div>
         )}
       </main>
 
