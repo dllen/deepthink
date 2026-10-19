@@ -21,7 +21,10 @@ deepthink/
 │   ├── category_classifier.py  # LLM 七分类
 │   ├── migrate_category.py     # 一次性分类迁移（已完成）
 │   ├── set_category.py         # 人工修正单条分类
-│   ├── main.py             # Main scraping script
+│   ├── fetch_from_params.py    # 周更入口：按 grab_params.json 抓取
+│   ├── crawler_subpages.py     # 周更入口：按脚本内 ROOT_URLS 抓取
+│   ├── grab_params.json        # 待抓 URL 清单（{"url","tags","done"}）
+│   ├── main.py             # Legacy interactive CLI
 │   ├── clean_db.py         # Database cleanup utility
 │   └── web_content_extractor.py
 ├── public/                 # Static files (HTML pages, data)
@@ -52,8 +55,14 @@ pip install -r python_scripts/requirements.txt
 # Create encrypted DB copy (optional; CI does not use it)
 ./scripts/encrypt-db.sh
 
-# Run content extractor
-cd python_scripts && python main.py
+# Weekly update entry points
+cd python_scripts && python3 fetch_from_params.py   # reads grab_params.json
+cd python_scripts && python3 crawler_subpages.py    # fixed ROOT_URLS; no params file
+
+# Legacy interactive CLI. It does not write `category`, so rows it inserts make
+# `npm run gen:static-js` fail validation; its manual input only writes
+# `manual_content`, which is not site data.
+cd python_scripts && python3 main.py
 ```
 
 ## Coding Style
@@ -66,7 +75,7 @@ cd python_scripts && python main.py
 ## Testing
 
 - Backend tests located in `python_scripts/test_*.py`
-- Run Python tests: `cd python_scripts && python -m pytest test_*.py`
+- Run Python tests: `cd python_scripts && python3 -m pytest test_*.py`
 - Run data pipeline tests: `npm run test:data`
 
 ## Git Workflow
@@ -88,7 +97,7 @@ Example: `feat: add a new article to the database`
 1. Commit from the `main` branch
 2. Use clear commit messages following the convention above
 3. Ensure `npm run build` succeeds before pushing
-4. The CI/CD workflow (`.github/workflows/deploy.yml`) auto-deploys to GitHub Pages on `main` push
+4. The CI/CD workflow (`.github/workflows/deploy.yml`) also runs on pull requests (`test:data`, `check:data`, `build`); production deployment is based on `main` push.
 
 ## Configuration
 
@@ -102,6 +111,6 @@ Copy `.env.example` to `.env` and configure:
 
 - SQLite database: `python_scripts/web_content.db` — single source of truth
 - Generated artifacts: `src/assets/static-data.json` + `src/assets/static-data.js` (via `npm run gen:static-js`; do not edit by hand)
-- Encrypted copy: `python_scripts/web_content.db.enc` (optional output of `./scripts/encrypt-db.sh`; not read by the build or CI)
+- Encrypted copy: `python_scripts/web_content.db.enc` — tracked but unused by build/CI (optional output of `./scripts/encrypt-db.sh`)
 - `content_summary` columns: `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, `uid`, `content`, `category`, `category_source`
 - `manual_content` is a legacy table written by the old `WebContentExtractor`; it is not part of the site data

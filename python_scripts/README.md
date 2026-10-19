@@ -67,8 +67,10 @@ export BROWSER_TIMEOUT="10"  # Page load timeout in seconds
 Run the interactive CLI:
 
 ```bash
-python main.py
+python3 main.py
 ```
+
+This is a legacy interactive path: it does not write `category`, so rows it inserts fail `npm run gen:static-js` validation, and its manual input only writes `manual_content`, which does not enter the site data. For weekly updates use `fetch_from_params.py` / `crawler_subpages.py` instead.
 
 ### Programmatic Usage
 
@@ -119,7 +121,7 @@ web_content_system/
 Run the test suite:
 
 ```bash
-python test_system.py
+python3 test_system.py
 ```
 
 ## Database Schema
@@ -135,7 +137,7 @@ python test_system.py
 - `uid`: Dedupe key (md5)
 - `content`: Full text (when backfilled)
 - `category`: One of the seven categories
-- `category_source`: `manual`（人工修正）/ `llm`（LLM 分类）/ `legacy-default`（2026-08 七分类引入时批量默认的文章）/ `default`（分类失败时的兜底）
+- `category_source`: `manual`（人工修正）/ `llm`（LLM 分类）/ `legacy-default`（2026-08 七分类引入时批量默认的文章）/ `default`（分类失败或 legacy 路径写入的兜底）。分类失败时也可能保持 `category_source=NULL`（例如绕过分类器直接写入的 legacy 行）。
 
 This table is the single source of truth for the site data. The site generator only exports `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, and `category`.
 
@@ -148,7 +150,7 @@ This table is the single source of truth for the site data. The site generator o
 - `summary`: Generated summary
 - `tags`: Comma-separated tags
 
-This is a legacy table written by the old `WebContentExtractor`; it currently has 0 rows and is no longer read by the site data generator. The category migration did not copy its rows into `content_summary.content` — it instead imported 32 hand-written entries from `src/assets/static-data.js` into `content_summary` (with `content` left empty and `category_source='manual'`).
+This is a legacy table written by the old `WebContentExtractor`; the current snapshot has 0 rows, and the generator does not read it. The category migration did not copy its rows into `content_summary.content` — it instead imported 32 hand-written entries from `src/assets/static-data.js` into `content_summary` (with `content` left empty and `category_source='manual'`).
 
 ## Extending the System
 

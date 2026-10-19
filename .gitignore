@@ -76,8 +76,9 @@ src/assets/static-data-*.json
 python_scripts/backups/
 
 # Database files
-# NOTE: python_scripts/web_content.db{,.enc} are intentionally tracked
-# despite the *.db pattern below — the deploy workflow relies on them.
+# NOTE: python_scripts/web_content.db is ignored by the *.db pattern below
+# but force-tracked; python_scripts/web_content.db.enc is also tracked.
+# The build/CI reads only the plaintext DB — the .enc file is unused by both.
 # See AGENTS.md / dev.md "Database Content Security" for context.
 *.db
 *.sqlite

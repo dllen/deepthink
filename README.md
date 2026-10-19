@@ -52,19 +52,28 @@ npm run lint    # ESLint
 
 - 真源：`python_scripts/web_content.db`（SQLite）
 - 生成：`npm run gen:static-js` 把 DB 导出为 `src/assets/static-data.json` 与 `src/assets/static-data.js`
-- 校验：`npm run check:data` 确认生成物与 DB 一致
+- 校验：`npm run check:data` 确认生成物与 DB 一致（CI 在 build 前强制执行；提交前务必跑）
 - 两个数据文件都是生成物，不要手工编辑；改内容请改 DB，或用 `python_scripts/set_category.py` 修正分类
 - `category` 是 DB 的列（七类之一），抓取入库时由 `python_scripts/category_classifier.py` 自动分类
-- 生成器只读 `content_summary`，一次性重写两个生成物；不做增量合并，也不产生快照
+- 数据只取自 `content_summary`；读取上一版 `static-data.js` 仅用于缩水校验。生成器一次性重写两个生成物，不做增量合并，也不产生快照
 
 ## 每周更新内容
 
-1. 抓取：`cd python_scripts && python3 fetch_from_params.py` 或 `python3 crawler_subpages.py`
-2. 生成：`npm run gen:static-js`
-3. 校验（可选）：`npm run check:data`
-4. 本地预览：`npm run dev`
-5. 提交并推送：`git add -A && git commit -m "chore(content): ..." && git push`
-6. 推送后 GitHub Actions 自动部署到 GitHub Pages
+前置条件：
+
+- 安装 Python 依赖：`pip install -r python_scripts/requirements.txt`
+- 在 `.env` 中配置 `DEEPSEEK_API_KEY`（或改用本地 Ollama）
+
+1. 录入本周链接（二选一）：
+   - 把链接追加到 `python_scripts/grab_params.json`，格式为 `{"url": "...", "tags": "...", "done": false}`；
+   - 或直接使用 `crawler_subpages.py`：它按脚本内固定的 `ROOT_URLS` 抓取，无需 `grab_params.json`。
+2. 抓取：`cd python_scripts && python3 fetch_from_params.py`（读取 `grab_params.json`，成功一条就把该条标为 `done: true`）或 `python3 crawler_subpages.py`。
+   - 用 `fetch_from_params.py` 时，抓取失败会保持 `done: false`；修好原因（链接、网络、API key）后重跑即可，已入库的条目不会重复写入。
+3. 生成：`npm run gen:static-js`。生成器先校验，失败时不写入任何文件并列出违规行，修 DB 后重跑；行数比上一版下降超过 10% 会被拒绝，确认无误时用 `npm run gen:static-js -- --allow-shrink`。
+4. 校验：`npm run check:data`（CI 在 build 前强制执行，提交前务必跑；会列出 DB 违规行或与生成物的差异，修 DB/重新生成后再跑）。
+5. 本地预览：`npm run dev`
+6. 提交并推送：`git add -A && git commit -m "chore(content): ..." && git push`
+7. 推送后 GitHub Actions 自动部署到 GitHub Pages
 
 需要人工修正某条内容的分类时：
 
@@ -74,11 +83,14 @@ python3 set_category.py --url <原文链接> <七类之一>
 # 或用 --id <行 id> 定位
 ```
 
+随后运行 `npm run gen:static-js`（建议再 `npm run check:data`）并提交生成物。
+
 ## 构建与部署
 
 - `npm run build` 生成 `dist/`。
 - CI（`.github/workflows/deploy.yml`）在 build 前执行 `npm run test:data` 与 `npm run check:data`。
 - CI **不重新生成数据**，直接部署提交的 `static-data.json` / `static-data.js`；更新内容后必须提交这两个生成物。
+- PR 也会触发 workflow（执行 `test:data` / `check:data` / `build`）；生产部署以 `main` push 为准。
 - 推送到 `main` 后自动部署到 `gh-pages` 分支。
 
 ## 使用说明

@@ -2,7 +2,7 @@
 
 ## Database Content Security
 
-> ⚠️ 现状说明（2026-10-18）：`python_scripts/web_content.db` 目前是**明文且被 git 跟踪**的，`dev.md` 旧版声称的“明文被忽略、CI 解密数据库”与事实不符。仓库为 public，明文 DB 的全部内容已随历史公开；加密策略的调整见后续 S3。
+> ⚠️ 现状说明（2026-10-18）：`python_scripts/web_content.db` 目前是**明文且被 git 跟踪**的，`dev.md` 旧版声称的“明文被忽略、CI 解密数据库”与事实不符。仓库为 public，明文 DB 的全部内容已随历史公开；明文 DB 与加密策略的调整见后续安全治理工作项。
 
 ### Current state
 

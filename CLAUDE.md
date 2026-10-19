@@ -17,14 +17,14 @@ Frontend (Node ≥ 20):
 - `npm run dev` — Vite dev server
 - `npm run build` — production build to `dist/`
 - `npm run lint` — ESLint (flat config, covers `src/` + `scripts/`)
-- `npm run gen:static-js` — 从 `python_scripts/web_content.db` 单向生成 `static-data.json` + `static-data.js`（先校验；失败不写入）
-- `npm run check:data` — 校验 DB、`static-data.json`、`static-data.js` 三者一致（CI 在 build 前执行）
+- `npm run gen:static-js` — 从 `python_scripts/web_content.db` 单向生成 `static-data.json` + `static-data.js`（先校验；失败不写入。行数比上一版下降 >10% 会被拒绝，确认无误时用 `npm run gen:static-js -- --allow-shrink`）
+- `npm run check:data` — 校验 DB、`static-data.json`、`static-data.js` 三者一致（CI 在 build 前强制执行；提交前务必跑）
 - `npm run test:data` — 数据规则与生成器的 Node 单元测试
 
 Backend (Python):
 - `pip install -r python_scripts/requirements.txt`
-- `cd python_scripts && python main.py` — interactive CLI (scrape / manual input / view / batch)
-- `cd python_scripts && python -m pytest test_*.py` — run backend tests
+- `cd python_scripts && python3 main.py` — legacy 交互路径（scrape / manual input / view / batch）。它不写 `category`，其写入的行会让 `npm run gen:static-js` 校验失败；manual input 只写 `manual_content`，不进入站点数据。周更入口请用 `python3 fetch_from_params.py` / `python3 crawler_subpages.py`
+- `cd python_scripts && python3 -m pytest test_*.py` — run backend tests
 - `./scripts/encrypt-db.sh` — encrypt the DB (requires `SQLITE_KEY` in env)
 
 ## Architecture
@@ -43,7 +43,7 @@ python_scripts/web_content.db ──scripts/generate-data.js──▶ src/assets
 - `category` 是 DB 的列（七类之一），抓取入库时由 `category_classifier.py` 自动分类，可用 `set_category.py` 人工修正。
 - 更新内容：改 DB → `npm run gen:static-js` → 提交 → 推送自动部署。
 - `npm run check:data` 校验 DB 与生成物一致，CI 在 build 前执行。
-- 生成器只读 `content_summary`（导出 `id/title/created_time/summary/original_url/tags/category`），按 `created_time DESC, id DESC` 排序，一次性重写两个生成物；不做增量合并，也不产生快照。
+- 数据只取自 `content_summary`（导出 `id/title/created_time/summary/original_url/tags/category`）；读取上一版 `static-data.js` 仅用于缩水校验。按 `created_time DESC, id DESC` 排序，一次性重写两个生成物；不做增量合并，也不产生快照。
 - CI 不重新生成数据：`deploy.yml` 直接部署提交的 `static-data.js`/`.json`；`test:data` + `check:data` 在 build 前执行。
 
 ### Frontend
@@ -67,7 +67,7 @@ Modular packages orchestrated by `extractor.py` / `main.py`:
 ## Gotchas
 
 - **No `package-lock.json`** (intentionally gitignored). CI runs `npm install --legacy-peer-deps`, not `npm ci` — the old lockfile pinned an internal npm registry unreachable from GH runners. Don't re-add it.
-- **DB files are committed despite `*.db` in `.gitignore`** (`web_content.db` + `web_content.db.enc`) — CI's `check:data` reads the plaintext DB. The `.env` holding `SQLITE_KEY` is not committed.
+- **DB files are committed despite `*.db` in `.gitignore`** — `web_content.db` is ignored by `*.db` but force-tracked; `web_content.db.enc` is also tracked, but build/CI do not read it. CI's `check:data` reads the plaintext DB. The `.env` holding `SQLITE_KEY` is not committed.
 - **Generated data files must be committed**: CI does not run `gen:static-js`; it deploys the committed `static-data.json` / `static-data.js`, and `check:data` fails if they diverge from the DB.
 - **Never hand-edit `static-data.json` / `static-data.js`** — the DB is the single source of truth. Change the DB, then run `npm run gen:static-js`. Fix a category with `python_scripts/set_category.py`.
-- Deploy is automatic on push to `main` → GitHub Pages (`gh-pages` branch).
+- Deploy is automatic on push to `main` → GitHub Pages (`gh-pages` branch). Pull requests also trigger the workflow (`test:data`, `check:data`, `build`); production deployment is based on `main` push.
