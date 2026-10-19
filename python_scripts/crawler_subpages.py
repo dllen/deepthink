@@ -5,11 +5,21 @@ append them all to python_scripts/web_content.db.
 
 Unlike crawler.py (which wipes the DB on every run), this script:
     * NEVER deletes or modifies existing rows.
-    * Inserts the 4 root pages (idempotent via UNIQUE uid).
+    * Inserts each root page (idempotent via UNIQUE uid); roots marked
+      `skip_root` are listing pages and are not inserted at all.
     * For each root, discovers same-domain internal links from the rendered
       HTML, filters out nav / utility / static-asset URLs, and caps the list.
     * Fetches each sub-URL, summarizes it, and inserts the row.
     * Re-running is safe — INSERT OR IGNORE on the uid unique index.
+
+Noise guards (added after the 2026-10 cleanup):
+    * MediaWiki special/login/utility pages are skipped by URL.
+    * Site-chrome titles (所有页面 / 特殊页面 / 登录 / Issues 列表 …) are skipped.
+    * A row whose exact title is already in the DB is skipped, which stops the
+      same article from being stored twice under two URL forms (e.g. wiki
+      /index.php/<title> vs /<title>, or a weekly issue mirrored on two hosts).
+    * The vibecodinghub weekly mirror root is gone — the GitHub blob view is the
+      canonical weekly source, so future runs cannot duplicate it.
 
 Defaults:
     * MAX_SUBPAGES_PER_ROOT = 30      (≈ 120 sub-rows max + 4 roots)
@@ -31,7 +41,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -67,19 +77,11 @@ ROOT_URLS: list[dict] = [
         "tags": "lixiaolai",
     },
     {
-        # vibecodinghub: HTML 渲染的镜像，<title>  和 <h1  > 都含本期标题；body 在 article。
-        # 只跟进 /issue/<N 路径，过滤掉 /category /about 等导航页。
-        "url": "https://ruanyf-weekly.vibecodinghub.org/",
-        "tags": "vibecodinghub,ruanyifeng,weekly",
-        "title_selector": "h1",
-        "content_selectors": ["article", ".issue-content", ".prose", "main"],
-        "link_pattern": r"/issue/\d+",
-    },
-    {
         # GitHub Issues 列表：读者自荐（开源自荐、文章自荐、工具推荐等）。
         # ponytail: 默认只看 OPEN 状态；closed 历史要全量可再手添带 q=is:issue+state:closed 的变体。
         # 标题在 bdi.js-issue-title；正文在 .markdown-body（首页 <h1> 顺带会拼上 #issueId，但 bdi 干净）。
         # 只跟进纯 issues/<id> 链接，过滤分页/筛选 chip。
+        # skip_root: 列表页本身不是内容，不插入（2026-10 清理前会存成「Issues · …」噪声行）。
         "url": "https://github.com/ruanyf/weekly/issues",
         "tags": "github-issues,ruanyifeng,weekly",
         # GitHub SPA 渲染的 issue 页，bdi.js-issue-title 不一定存在；直接用 <title> 后剥掉 " · Issue #NNN · ... · GitHub" 后缀。
@@ -87,16 +89,19 @@ ROOT_URLS: list[dict] = [
         "title_strip": r"\s*·\s*Issue\s*#\d+.*$",
         "content_selectors": ["[data-testid=\"issue-body\"]", ".markdown-body"],
         "link_pattern": r"/ruanyf/weekly/issues/\d+$",
+        "skip_root": True,
     },
     {
         # GitHub blob 视图：<title  > 是 "repo/path at master · repo · GitHub"，没有用。
         # 真正标题在 .markdown-body 里的第一个 <h1  >；正文也在 .markdown-body。
         # 只跟进 issue markdown 页面，避开市场页/导航。master/main 两个分支都容许。
+        # 周刊的唯一抓取源（vibecodinghub 镜像根已移除；2026-10 清理时镜像重复全部删除）。
         "url": "https://github.com/ruanyf/weekly",
         "tags": "github,ruanyifeng,weekly",
         "title_selector": ".markdown-body h1",
         "content_selectors": [".markdown-body", "article"],
         "link_pattern": r"/ruanyf/weekly/blob/(?:master|main)/docs/issue-\d+\.md$",
+        "skip_root": True,
     },
     # ------------------------------------------------------------------
     # 热搜 / 聚合类信息源头（多平台热榜）。
@@ -174,7 +179,19 @@ SKIP_QUERY_PARAMS = (
     "action=delete", "action=protect", "action=purge",
     "action=submit", "action=render",
     "redlink=1", "oldid=", "diff=",
+    # 2026-10 cleanup: special/login pages carry a return URL or a Special: target
+    "returnto=", "title=special:", "title=special%3a", "pagesetting",
 )
+
+# MediaWiki special pages — decoded path/query contains "特殊:" (Special:)
+SPECIAL_PATH = re.compile(r"(?:special:|特殊:)", re.I)
+
+# Site chrome titles — navigation / login / listing pages, never article content
+TITLE_NOISE_PATTERNS = (
+    "所有页面", "特殊页面", "需要登录", "用户登录", "登录 -", "登录－",
+)
+TITLE_NOISE_EXACT = {"个人维基", "首页 - 个人维基", "科技爱好者周刊"}
+TITLE_NOISE_REGEX = re.compile(r"^(?:Issues|Pull requests|Actions|Projects)\s*·", re.I)
 
 # Static asset extensions — never fetch these
 STATIC_EXT = re.compile(
@@ -267,6 +284,14 @@ def ensure_schema(path: Path) -> sqlite3.Connection:
 
 def uid_for(url: str) -> str:
     return hashlib.md5(url.encode("utf-8")).hexdigest()
+
+
+def title_exists(conn: sqlite3.Connection, title: str) -> bool:
+    """True when an exact title is already stored (guards URL-variant dupes)."""
+    cur = conn.execute(
+        "SELECT 1 FROM content_summary WHERE title = ? LIMIT 1", (title.strip(),)
+    )
+    return cur.fetchone() is not None
 
 
 def insert_row(
@@ -464,14 +489,35 @@ def is_skippable_link(href: str) -> bool:
     if STATIC_EXT.search(parsed.path or ""):
         return True
     path_low = (parsed.path or "/").lower()
+    # Compare decoded forms too: 特殊:/%E7%89%B9%E6%AE%8A: and %3A-encoded queries
+    decoded = unquote(low)
+    if SPECIAL_PATH.search(path_low) or SPECIAL_PATH.search(decoded):
+        return True
     for frag in SKIP_PATH_FRAGMENTS:
         if frag in path_low or frag in low:
             return True
     query_low = (parsed.query or "").lower()
     for q in SKIP_QUERY_PARAMS:
-        if q in query_low:
+        if q in query_low or q in decoded:
             return True
     return False
+
+
+def is_noise_title(title: str) -> bool:
+    """True for site-chrome titles: nav / login / listing pages.
+
+    These are never article content even when the page body is long enough to
+    pass MIN_CONTENT_LEN (that is how wiki 「所有页面」 and GitHub issue
+    listings ended up in the site before the 2026-10 cleanup).
+    """
+    t = (title or "").strip()
+    if not t:
+        return True
+    if t in TITLE_NOISE_EXACT:
+        return True
+    if TITLE_NOISE_REGEX.search(t):
+        return True
+    return any(p in t for p in TITLE_NOISE_PATTERNS)
 
 
 def discover_suburls(
@@ -601,6 +647,14 @@ def insert_one(
         print(f"   skip   : only {len(content)} chars (below min {MIN_CONTENT_LEN})")
         return False
 
+    if is_noise_title(title):
+        print("   skip   : site chrome title (nav / login / listing)")
+        return False
+
+    if title_exists(conn, title):
+        print("   skip   : same title already in db (mirror / URL variant)")
+        return False
+
     summary = make_summary(title, content)
     row_id = insert_row(conn, url, title, summary, tags, content=content, update_content=update_content)
     if row_id is None:
@@ -652,10 +706,13 @@ def main() -> int:
 
             print(f"\n══════ ROOT  {root_url}  ══════")
 
-            # 1) Insert the root page itself
-            inserted = insert_one(conn, root_url, root_tags, label="ROOT  ", update_content=args.update_content, root=root)
-            grand_inserted += int(bool(inserted))
-            grand_skipped += int(not inserted)
+            # 1) Insert the root page itself (listing roots set `skip_root`)
+            if root.get("skip_root"):
+                print("   (listing root — not inserted)")
+            else:
+                inserted = insert_one(conn, root_url, root_tags, label="ROOT  ", update_content=args.update_content, root=root)
+                grand_inserted += int(bool(inserted))
+                grand_skipped += int(not inserted)
 
             # 2) Discover same-domain sub-URLs from the root page
             page = fetch_page(root_url, root=root)

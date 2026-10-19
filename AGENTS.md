@@ -123,4 +123,5 @@ Copy `.env.example` to `.env` and configure:
 - Fresh clone: run `./scripts/decrypt-db.sh` before `npm run gen:static-js` / `npm run check:data`
 - Generated artifacts: `src/assets/static-data.json` + `src/assets/static-data.js` (via `npm run gen:static-js`; do not edit by hand)
 - `content_summary` columns: `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, `uid`, `content`, `category`, `category_source`
+- Ingestion guards (2026-10-19 cleanup): `crawler_subpages.py` skips MediaWiki special/login URLs, site-chrome titles (nav/login/listing), and rows whose exact title already exists (URL-variant mirrors); GitHub listing/repo roots are `skip_root`, and weekly issues come only from the GitHub blob view. Tests: `python_scripts/test_crawler_filters.py`. Record: [cleanup summary](docs/superpowers/audits/2026-10-19-cleanup/summary.md).
 - `manual_content` is a legacy table written by the old `WebContentExtractor`; it is not part of the site data
