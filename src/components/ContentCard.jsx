@@ -22,6 +22,8 @@ const ContentCard = ({ item }) => {
             href={item.original_url} 
             target="_blank" 
             rel="noopener noreferrer"
+            tabIndex={-1}
+            aria-hidden="true"
             className="text-slate-400 hover:text-indigo-500 transition-colors bg-slate-50 hover:bg-indigo-50 p-1.5 rounded-full"
             title="查看原文"
           >

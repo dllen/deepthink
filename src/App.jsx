@@ -183,71 +183,78 @@ const App = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-        {currentView === VIEW_BROWSE ? (
-          <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse">
-            <h1 className="sr-only">观念棱镜 · 内容浏览</h1>
-            {/* 分析报告栏目 */}
-            <ReportsPanel />
+        <div
+          id="panel-browse"
+          role="tabpanel"
+          aria-labelledby="tab-browse"
+          hidden={currentView !== VIEW_BROWSE}
+        >
+          <h1 className="sr-only">观念棱镜 · 内容浏览</h1>
+          {/* 分析报告栏目 */}
+          <ReportsPanel />
 
-            {/* 信息源头栏目 */}
-            <LinksPanel />
+          {/* 信息源头栏目 */}
+          <LinksPanel />
 
-            {/* 搜索栏 */}
-            <div className="mb-6">
-              <SearchBar
-                searchQuery={searchQuery}
-                onSearchChange={handleSearchChange}
-                onClearSearch={handleClearSearch}
+          {/* 搜索栏 */}
+          <div className="mb-6">
+            <SearchBar
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              onClearSearch={handleClearSearch}
+            />
+          </div>
+
+          {/* 筛选区：分类（七大类单选）+ 标签（次级多选）合并为一个 sticky 容器 */}
+          <div className="mb-8 sticky top-20 z-40 max-md:static bg-slate-50/95 backdrop-blur-sm rounded-2xl">
+            <div className="mb-3">
+              <CategoryFilter
+                selectedCategory={selectedCategory}
+                onCategorySelect={setSelectedCategory}
+                counts={categoryCounts}
               />
             </div>
-
-            {/* 筛选区：分类（七大类单选）+ 标签（次级多选）合并为一个 sticky 容器 */}
-            <div className="mb-8 sticky top-20 z-40 max-md:static bg-slate-50/95 backdrop-blur-sm rounded-2xl">
-              <div className="mb-3">
-                <CategoryFilter
-                  selectedCategory={selectedCategory}
-                  onCategorySelect={setSelectedCategory}
-                  counts={categoryCounts}
-                />
-              </div>
-              <TagFilter
-                tags={tags}
-                selectedTags={selectedTags}
-                onTagToggle={toggleTag}
-                onClearFilters={clearTagFilters}
-              />
-            </div>
-
-            {/* 瀑布流内容 */}
-            <div className="transition-opacity duration-500 ease-in-out">
-              <WaterfallGrid data={filteredData} />
-            </div>
-
-            {filteredData.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-indigo-200 shadow-sm mx-auto max-w-2xl">
-                <div className="mx-auto h-24 w-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-indigo-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-slate-900">没有找到匹配的内容</h3>
-                <p className="mt-2 text-slate-500 max-w-sm mx-auto">
-                  尝试选择不同的分类或标签，或者清除当前的筛选条件重新开始
-                </p>
-                <button
-                  onClick={clearAllFilters}
-                  className="mt-8 px-6 py-2.5 bg-indigo-500 text-white rounded-full font-medium shadow-lg shadow-indigo-200 hover:bg-indigo-600 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                  清除所有筛选
-                </button>
-              </div>
-            )}
+            <TagFilter
+              tags={tags}
+              selectedTags={selectedTags}
+              onTagToggle={toggleTag}
+              onClearFilters={clearTagFilters}
+            />
           </div>
-        ) : (
-          <div id="panel-search" role="tabpanel" aria-labelledby="tab-search">
-            <Last30daysPage query={searchPageQuery} onQueryChange={setSearchPageQuery} />
+
+          {/* 瀑布流内容 */}
+          <div className="transition-opacity duration-500 ease-in-out">
+            <WaterfallGrid data={filteredData} />
           </div>
-        )}
+
+          {filteredData.length === 0 && (
+            <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-indigo-200 shadow-sm mx-auto max-w-2xl">
+              <div className="mx-auto h-24 w-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-indigo-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900">没有找到匹配的内容</h3>
+              <p className="mt-2 text-slate-500 max-w-sm mx-auto">
+                尝试选择不同的分类或标签，或者清除当前的筛选条件重新开始
+              </p>
+              <button
+                onClick={clearAllFilters}
+                className="mt-8 px-6 py-2.5 bg-indigo-500 text-white rounded-full font-medium shadow-lg shadow-indigo-200 hover:bg-indigo-600 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                清除所有筛选
+              </button>
+            </div>
+          )}
+        </div>
+        <div
+          id="panel-search"
+          role="tabpanel"
+          aria-labelledby="tab-search"
+          hidden={currentView !== VIEW_SEARCH}
+        >
+          <Last30daysPage query={searchPageQuery} onQueryChange={setSearchPageQuery} />
+        </div>
       </main>
 
       <footer className="bg-white border-t border-slate-100 mt-12 py-8">
