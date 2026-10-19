@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import initSqlJs from 'sql.js';
 
 import { generate } from './generate.mjs';
-import { readGeneratedRows } from './generated-data.mjs';
+import { parseGeneratedModule, readGeneratedRows } from './generated-data.mjs';
 
 let sqlPromise = null;
 function getSql() {
@@ -93,7 +93,7 @@ test('正常生成：内容一致、按时间与 id 倒序、重复生成字节�
   assert.equal(first.count, 3);
   assert.equal(first.previousCount, null);
 
-  const jsonRows = readGeneratedRows(paths.jsonPath);
+  const jsonRows = JSON.parse(fs.readFileSync(paths.jsonPath, 'utf-8'));
   const jsRows = readGeneratedRows(paths.jsPath);
   assert.deepEqual(jsonRows, jsRows);
   assert.deepEqual(jsonRows.map((row) => row.id), [3, 2, 1]);
@@ -182,7 +182,7 @@ test('缩水拦截；allowShrink 放行并记录 warning', async (t) => {
   assert.equal(allowed.previousCount, 10);
   assert.match(allowed.warnings.join('\n'), /缩水|放行/);
   assert.equal(readGeneratedRows(paths.jsPath).length, 5);
-  assert.equal(readGeneratedRows(paths.jsonPath).length, 5);
+  assert.equal(JSON.parse(fs.readFileSync(paths.jsonPath, 'utf-8')).length, 5);
 });
 
 test('上一版无法解析：默认抛错且不写；allowShrink 放行', async (t) => {
@@ -209,7 +209,7 @@ test('上一版无法解析：默认抛错且不写；allowShrink 放行', async
   assert.equal(allowed.previousCount, null);
   assert.match(allowed.warnings.join('\n'), /无法解析上一版/);
   assert.equal(readGeneratedRows(paths.jsPath).length, 1);
-  assert.equal(readGeneratedRows(paths.jsonPath).length, 1);
+  assert.equal(JSON.parse(fs.readFileSync(paths.jsonPath, 'utf-8')).length, 1);
 });
 
 test('上一版不是数组：默认抛错且不写；allowShrink 放行', async (t) => {
@@ -237,7 +237,7 @@ test('上一版不是数组：默认抛错且不写；allowShrink 放行', async
   assert.equal(allowed.previousCount, null);
   assert.match(allowed.warnings.join('\n'), /无法解析上一版/);
   assert.equal(readGeneratedRows(paths.jsPath).length, 1);
-  assert.equal(readGeneratedRows(paths.jsonPath).length, 1);
+  assert.equal(JSON.parse(fs.readFileSync(paths.jsonPath, 'utf-8')).length, 1);
 });
 
 test('warning 只返回给调用方，库内不重复打印', async (t) => {
@@ -281,6 +281,17 @@ test('写入失败：抛错、json 回滚、无 .tmp 残留', async (t) => {
   assert.equal(fs.readFileSync(paths.jsonPath, 'utf-8'), oldJson);
   assert.equal(fs.statSync(jsAsDirectory).isDirectory(), true);
   assertNoTemps(paths.jsonPath, jsAsDirectory);
+});
+
+test('parseGeneratedModule 强制 export default', () => {
+  assert.throws(
+    () => parseGeneratedModule('[{"id":1}]'),
+    /生成物缺少 export default/,
+  );
+  assert.deepEqual(
+    parseGeneratedModule('export default [{"id":1}];\n'),
+    [{ id: 1 }],
+  );
 });
 
 test('CLI 拒绝未知参数，非 0 退出且不改输出文件', () => {
