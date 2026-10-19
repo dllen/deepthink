@@ -32,6 +32,12 @@ jobs:
     # to use public registry (package-lock.json currently points to an
     # internal registry that GH runners can't reach).
 
+    - name: Run data rule tests
+      run: npm run test:data
+
+    - name: Check data consistency
+      run: npm run check:data
+
     - name: Build project
       run: npm run build
 
