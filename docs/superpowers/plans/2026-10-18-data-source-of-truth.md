@@ -1437,21 +1437,16 @@ import { fileURLToPath } from 'url';
 
 import { readDatabaseRows } from './lib/db.mjs';
 import { compareDatasets, validateRows } from './lib/data-rules.mjs';
+import { readGeneratedRows } from './lib/generated-data.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.resolve(__dirname, '../python_scripts/web_content.db');
 const JS_PATH = path.resolve(__dirname, '../src/assets/static-data.js');
 const JSON_PATH = path.resolve(__dirname, '../src/assets/static-data.json');
 
-function readPublished(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf-8').trim();
-  const body = raw.replace(/^export default\s*/, '').replace(/;\s*$/, '');
-  return JSON.parse(body);
-}
-
 async function main() {
   const dbRows = await readDatabaseRows(DB_PATH);
-  const published = readPublished(JS_PATH);
+  const published = readGeneratedRows(JS_PATH);
   const publishedJson = JSON.parse(fs.readFileSync(JSON_PATH, 'utf-8'));
 
   const dbCheck = validateRows(dbRows);
