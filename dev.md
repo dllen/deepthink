@@ -2,42 +2,77 @@
 
 ## Database Content Security
 
-> ⚠️ 现状说明（2026-10-18）：`python_scripts/web_content.db` 目前是**明文且被 git 跟踪**的，`dev.md` 旧版声称的“明文被忽略、CI 解密数据库”与事实不符。仓库为 public，明文 DB 的全部内容已随历史公开；明文 DB 与加密策略的调整见后续安全治理工作项。
-
 ### Current state
 
-- `python_scripts/web_content.db`（明文）被 git 跟踪，是站点数据的唯一真源。
-- `python_scripts/web_content.db.enc` 也被 git 跟踪。它由 `scripts/encrypt-db.sh` 生成，但站点构建和 CI 都不读取它。
-- CI 不解密数据库：`check:data` 用 sql.js 直接读取仓库中的明文 DB，校验 `static-data.json` / `static-data.js` 与 DB 一致；build/deploy 不重新生成数据。
-- `SQLITE_KEY` 只在本地运行 `scripts/encrypt-db.sh` 时需要，不是部署所需的 secret。
+- `python_scripts/web_content.db`（明文 SQLite）是本地工作副本。它被 `.gitignore` 的 `*.db` 忽略，**不再被 git 跟踪**；内容仍以同样的表结构存在，只是不进入版本库。
+- `python_scripts/web_content.db.enc` 被 git 跟踪，是**仓库中唯一的数据副本**。它由 `scripts/encrypt-db.sh` 用 `SQLITE_KEY` 加密生成，必须在每次修改 DB 后重新生成并提交。
+- CI 在 `test:data` / `check:data` 前运行 `scripts/decrypt-db.sh`，用仓库 secret `SQLITE_KEY` 从 `.enc` 还原明文（只在 runner 上存在，不进版本库）。
+- build/deploy 不重新生成数据：直接部署提交的 `static-data.json` / `static-data.js`。
+- 明文的全部内容**已经存在于历史提交中**（仓库曾公开跟踪明文 DB）。这是已评估并接受的风险：不重写 Git 历史；如需彻底清除，只能重写历史并强制推送。
+- `SQLITE_KEY` 只存在于本地 `.env` 和 GitHub Actions secret 中，仓库和 CI 日志都不应出现它的值。
 
 ### Local Development Setup
 
-1. Copy the example file:
+1. Copy the example file and fill in your keys:
 
    ```bash
    cp .env.example .env
+   chmod 600 .env
    ```
-
-2. Edit `.env` and fill in your keys:
 
    ```ini
    SQLITE_KEY=your_secret_password_here
    DEEPSEEK_API_KEY=your_deepseek_api_key
    ```
 
-   `SQLITE_KEY` is only used by the optional encryption script below. `DEEPSEEK_API_KEY` is used by scraping and category classification.
+   `SQLITE_KEY` is used to encrypt/decrypt the database; keep it identical to the CI secret. `DEEPSEEK_API_KEY` is used by scraping and category classification. `.env` is ignored by git.
 
-   *Note: The `.env` file is ignored by git, so your secrets remain safe locally.*
+2. Restore the plaintext database (fresh clone, or after deleting it):
 
-### Encrypting the Database (optional)
+   ```bash
+   ./scripts/decrypt-db.sh
+   ```
+
+   The script decrypts to a temporary file and verifies the `SQLite format 3` header before replacing `web_content.db`, so a wrong `SQLITE_KEY` cannot clobber an existing plaintext DB.
+
+3. Install dependencies exactly as CI does:
+
+   ```bash
+   npm ci
+   ```
+
+### Daily / weekly workflow
 
 ```bash
+# after scraping/updating the plaintext DB
+npm run gen:static-js
+npm run check:data
+
+# re-encrypt and commit the encrypted copy (never the plaintext)
+export SQLITE_KEY=...
+./scripts/encrypt-db.sh
+git add python_scripts/web_content.db.enc src/assets/static-data.json src/assets/static-data.js
+```
+
+`git status` should never list `python_scripts/web_content.db` as tracked/staged.
+
+### Encrypting the Database
+
+```bash
+export SQLITE_KEY=...
 ./scripts/encrypt-db.sh
 ```
 
-This writes `python_scripts/web_content.db.enc`. It does **not** remove the plaintext `web_content.db` from git, and no build or CI step consumes the `.enc` file. Treat it as an ad-hoc encrypted copy, not as leak protection.
+This rewrites `python_scripts/web_content.db.enc` from the plaintext DB. Commit the updated `.enc`; the plaintext stays local and ignored.
+
+### Key loss and recovery
+
+- If `SQLITE_KEY` is lost and no plaintext copy survives anywhere, `web_content.db.enc` **cannot be decrypted** — treat the key as part of the data. Keep a password-manager entry and an offline backup of both the key and the plaintext DB.
+- If the key is available, restore locally with `./scripts/decrypt-db.sh`; CI restores automatically from the `SQLITE_KEY` secret.
+- If the key is lost but a plaintext DB still exists locally, generate a new `.enc` with a new key (`./scripts/encrypt-db.sh`), then update the `SQLITE_KEY` secret in GitHub before pushing.
+
+Configure the CI secret at: repository **Settings → Secrets and variables → Actions → New repository secret**, name `SQLITE_KEY`, value identical to local `.env`.
 
 ### GitHub Actions
 
-The current `deploy.yml` workflow does not decrypt the database and does not need a `SQLITE_KEY` repository secret. It runs `npm run test:data`, `npm run check:data`, then `npm run build`, and deploys the committed static data artifacts directly.
+`deploy.yml` installs with `npm ci` (committed `package-lock.json`), decrypts the database with the `SQLITE_KEY` secret, then runs `npm run test:data`, `npm run check:data`, and `npm run build` before deploying the committed static data artifacts. Third-party actions are pinned to commit SHAs and the workflow declares `permissions: contents: write`.

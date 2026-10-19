@@ -8,12 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Two independent halves:
 1. **Frontend** (`src/`, `index.html`) — imports `src/assets/static-data.js` (a generated `export default [...]` module) and renders a filterable waterfall.
-2. **Python scraper** (`python_scripts/`) — scrapes URLs, summarizes via LLM, writes a SQLite DB that is committed to git.
+2. **Python scraper** (`python_scripts/`) — scrapes URLs, summarizes via LLM, writes a local SQLite DB whose **encrypted copy** is committed to git.
 
 ## Commands
 
 Frontend (Node ≥ 20):
-- `npm install` — install deps (no lockfile; see Gotchas)
+- `npm ci` — install the exact dependency tree from the committed `package-lock.json`
+- `npm install` — install deps (updates the lockfile; commit it if it changes)
 - `npm run dev` — Vite dev server
 - `npm run build` — production build to `dist/`
 - `npm run lint` — ESLint (flat config, covers `src/` + `scripts/`)
@@ -25,7 +26,8 @@ Backend (Python):
 - `pip install -r python_scripts/requirements.txt`
 - `cd python_scripts && python3 main.py` — legacy 交互路径（scrape / manual input / view / batch）。它不写 `category`，其写入的行会让 `npm run gen:static-js` 校验失败；manual input 只写 `manual_content`，不进入站点数据。周更入口请用 `python3 fetch_from_params.py` / `python3 crawler_subpages.py`
 - `cd python_scripts && python3 -m pytest test_*.py` — run backend tests
-- `./scripts/encrypt-db.sh` — encrypt the DB (requires `SQLITE_KEY` in env)
+- `./scripts/encrypt-db.sh` — encrypt the DB (requires `SQLITE_KEY` in env), then commit `web_content.db.enc`
+- `./scripts/decrypt-db.sh` — restore the ignored plaintext DB from `.enc` (requires `SQLITE_KEY`); needed after a fresh clone
 
 ## Architecture
 
@@ -40,9 +42,10 @@ python_scripts/web_content.db ──scripts/generate-data.js──▶ src/assets
 ```
 
 - DB 是唯一真源；两个数据文件都是生成物，**禁止手工编辑**。
+- 仓库只跟踪加密副本 `python_scripts/web_content.db.enc`；明文 `python_scripts/web_content.db` 被 `*.db` 忽略。fresh clone 后先运行 `./scripts/decrypt-db.sh` 才能本地 `gen:static-js` / `check:data`。
 - `category` 是 DB 的列（七类之一），抓取入库时由 `category_classifier.py` 自动分类，可用 `set_category.py` 人工修正。
-- 更新内容：改 DB → `npm run gen:static-js` → 提交 → 推送自动部署。
-- `npm run check:data` 校验 DB 与生成物一致，CI 在 build 前执行。
+- 更新内容：改 DB → `npm run gen:static-js` → `./scripts/encrypt-db.sh` 重新加密并提交 `.enc`（不提交明文）→ 推送自动部署。
+- `npm run check:data` 校验 DB 与生成物一致，CI 在 build 前执行（先解密 `.enc`）。
 - 数据只取自 `content_summary`（导出 `id/title/created_time/summary/original_url/tags/category`）；读取上一版 `static-data.js` 仅用于缩水校验。按 `created_time DESC, id DESC` 排序，一次性重写两个生成物；不做增量合并，也不产生快照。
 - CI 不重新生成数据：`deploy.yml` 直接部署提交的 `static-data.js`/`.json`；`test:data` + `check:data` 在 build 前执行。
 
@@ -66,8 +69,9 @@ Modular packages orchestrated by `extractor.py` / `main.py`:
 
 ## Gotchas
 
-- **No `package-lock.json`** (intentionally gitignored). CI runs `npm install --legacy-peer-deps`, not `npm ci` — the old lockfile pinned an internal npm registry unreachable from GH runners. Don't re-add it.
-- **DB files are committed despite `*.db` in `.gitignore`** — `web_content.db` is ignored by `*.db` but force-tracked; `web_content.db.enc` is also tracked, but build/CI do not read it. CI's `check:data` reads the plaintext DB. The `.env` holding `SQLITE_KEY` is not committed.
+- **`package-lock.json` is committed** (resolved from the public npm registry, no internal URLs). CI runs `npm ci`. If you regenerate it, use `npm install --package-lock-only --registry=https://registry.npmjs.org` and confirm `grep -c "corp.kuaishou" package-lock.json` is `0`.
+- **Only the encrypted DB is tracked** — `web_content.db` is ignored by `*.db`; `web_content.db.enc` is the sole data copy in git. CI decrypts it with the `SQLITE_KEY` secret before `check:data`; build/deploy uses the committed generated files. The `.env` holding `SQLITE_KEY` is not committed, and losing the key makes `.enc` unrecoverable.
+- **Historical commits still contain the old plaintext DB** — an accepted risk; Git history is not being rewritten. Don't re-add the plaintext DB to tracking.
 - **Generated data files must be committed**: CI does not run `gen:static-js`; it deploys the committed `static-data.json` / `static-data.js`, and `check:data` fails if they diverge from the DB.
 - **Never hand-edit `static-data.json` / `static-data.js`** — the DB is the single source of truth. Change the DB, then run `npm run gen:static-js`. Fix a category with `python_scripts/set_category.py`.
 - Deploy is automatic on push to `main` → GitHub Pages (`gh-pages` branch). Pull requests also trigger the workflow (`test:data`, `check:data`, `build`); production deployment is based on `main` push.

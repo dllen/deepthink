@@ -39,7 +39,8 @@ deepthink/
 
 | Command | Description |
 |---------|-------------|
-| `npm install` | Install dependencies |
+| `npm ci` | Install exact dependencies from the committed lockfile |
+| `npm install` | Install dependencies (updates the lockfile; commit the result) |
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
@@ -52,7 +53,10 @@ deepthink/
 # Python dependencies
 pip install -r python_scripts/requirements.txt
 
-# Create encrypted DB copy (optional; CI does not use it)
+# Restore the ignored plaintext DB from the tracked encrypted copy (needs SQLITE_KEY)
+./scripts/decrypt-db.sh
+
+# Re-encrypt after changing the DB, then commit python_scripts/web_content.db.enc
 ./scripts/encrypt-db.sh
 
 # Weekly update entry points
@@ -105,12 +109,14 @@ Copy `.env.example` to `.env` and configure:
 
 - `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` — LLM API keys
 - `OLLAMA_API_URL` — Local Ollama endpoint (defaults to `http://localhost:11434`)
-- `SQLITE_KEY` — Optional; only used by `./scripts/encrypt-db.sh`
+- `SQLITE_KEY` — Required for `./scripts/encrypt-db.sh` / `./scripts/decrypt-db.sh`; the same value is stored as the CI `SQLITE_KEY` secret. Keep `.env` at mode 600.
 
 ## Database
 
-- SQLite database: `python_scripts/web_content.db` — single source of truth
+- SQLite database: `python_scripts/web_content.db` — the local plaintext working copy; **not tracked** (ignored by `*.db`)
+- Encrypted copy: `python_scripts/web_content.db.enc` — **tracked; the only data copy in the repository**. Re-generate and commit it after every DB change via `./scripts/encrypt-db.sh`
+- CI restores the plaintext from `.enc` with the `SQLITE_KEY` secret before `test:data` / `check:data`; build/deploy uses the committed generated files
+- Fresh clone: run `./scripts/decrypt-db.sh` before `npm run gen:static-js` / `npm run check:data`
 - Generated artifacts: `src/assets/static-data.json` + `src/assets/static-data.js` (via `npm run gen:static-js`; do not edit by hand)
-- Encrypted copy: `python_scripts/web_content.db.enc` — tracked but unused by build/CI (optional output of `./scripts/encrypt-db.sh`)
 - `content_summary` columns: `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, `uid`, `content`, `category`, `category_source`
 - `manual_content` is a legacy table written by the old `WebContentExtractor`; it is not part of the site data

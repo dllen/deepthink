@@ -46,11 +46,13 @@ npm run preview # 预览生产构建
 npm run lint    # ESLint
 ```
 
-仓库不跟踪 `package-lock.json`，CI 使用 `npm install --legacy-peer-deps`。
+仓库提交 `package-lock.json`（从公共 npm registry 解析，不含内网地址），CI 使用 `npm ci` 安装锁定版本。
 
 ## 数据从哪来
 
-- 真源：`python_scripts/web_content.db`（SQLite）
+- 真源：`python_scripts/web_content.db`（SQLite，本地明文，**不被 git 跟踪**）
+- 仓库唯一数据副本：`python_scripts/web_content.db.enc`（加密，已跟踪）；fresh clone 后先运行 `./scripts/decrypt-db.sh` 恢复明文，才能本地 `npm run gen:static-js` / `npm run check:data`
+- CI 用仓库 secret `SQLITE_KEY` 执行 `./scripts/decrypt-db.sh` 后再校验
 - 生成：`npm run gen:static-js` 把 DB 导出为 `src/assets/static-data.json` 与 `src/assets/static-data.js`
 - 校验：`npm run check:data` 确认生成物与 DB 一致（CI 在 build 前强制执行；提交前务必跑）
 - 两个数据文件都是生成物，不要手工编辑；改内容请改 DB，或用 `python_scripts/set_category.py` 修正分类
@@ -63,6 +65,7 @@ npm run lint    # ESLint
 
 - 安装 Python 依赖：`pip install -r python_scripts/requirements.txt`
 - 在 `.env` 中配置 `DEEPSEEK_API_KEY`（或改用本地 Ollama）
+- fresh clone 先恢复明文数据库（已有本地明文可跳过）：`export SQLITE_KEY=... && ./scripts/decrypt-db.sh`
 
 1. 录入本周链接（二选一）：
    - 把链接追加到 `python_scripts/grab_params.json`，格式为 `{"url": "...", "tags": "...", "done": false}`；
@@ -71,9 +74,10 @@ npm run lint    # ESLint
    - 用 `fetch_from_params.py` 时，抓取失败会保持 `done: false`；修好原因（链接、网络、API key）后重跑即可，已入库的条目不会重复写入。
 3. 生成：`npm run gen:static-js`。生成器先校验，失败时不写入任何文件并列出违规行，修 DB 后重跑；行数比上一版下降超过 10% 会被拒绝，确认无误时用 `npm run gen:static-js -- --allow-shrink`。
 4. 校验：`npm run check:data`（CI 在 build 前强制执行，提交前务必跑；会列出 DB 违规行或与生成物的差异，修 DB/重新生成后再跑）。
-5. 本地预览：`npm run dev`
-6. 提交并推送：`git add -A && git commit -m "chore(content): ..." && git push`
-7. 推送后 GitHub Actions 自动部署到 GitHub Pages
+5. 重新加密并提交加密副本：`export SQLITE_KEY=... && ./scripts/encrypt-db.sh`，然后提交 `python_scripts/web_content.db.enc`；**不要提交明文** `python_scripts/web_content.db`。
+6. 本地预览：`npm run dev`
+7. 提交并推送：`git add -A && git commit -m "chore(content): ..." && git push`（`git add -A` 不会纳入被忽略的明文 DB）
+8. 推送后 GitHub Actions 自动部署到 GitHub Pages
 
 需要人工修正某条内容的分类时：
 
@@ -88,7 +92,7 @@ python3 set_category.py --url <原文链接> <七类之一>
 ## 构建与部署
 
 - `npm run build` 生成 `dist/`。
-- CI（`.github/workflows/deploy.yml`）在 build 前执行 `npm run test:data` 与 `npm run check:data`。
+- CI（`.github/workflows/deploy.yml`）用 `npm ci` 安装依赖，在 build 前用 `SQLITE_KEY` secret 运行 `./scripts/decrypt-db.sh`，再执行 `npm run test:data` 与 `npm run check:data`。
 - CI **不重新生成数据**，直接部署提交的 `static-data.json` / `static-data.js`；更新内容后必须提交这两个生成物。
 - PR 也会触发 workflow（执行 `test:data` / `check:data` / `build`）；生产部署以 `main` push 为准。
 - 推送到 `main` 后自动部署到 `gh-pages` 分支。
