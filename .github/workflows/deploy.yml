@@ -26,11 +26,10 @@ jobs:
       # public registry (https://registry.npmjs.org/) which is the CI default.
       run: npm install --legacy-peer-deps
 
-    # Use committed static-data.js/json directly. In-CI regeneration requires
-    # sql.js + a database decrypt step, which were intentionally removed in
-    # 5c10e48 (see comment there). Re-enable only after fixing the install
-    # to use public registry (package-lock.json currently points to an
-    # internal registry that GH runners can't reach).
+    # Build/deploy does not regenerate data: it uses the committed
+    # static-data.js/json directly. `check:data` below reads the plaintext
+    # DB with sql.js and verifies the generated files are consistent with it;
+    # no database decryption step is involved.
 
     - name: Run data rule tests
       run: npm run test:data

@@ -1,5 +1,5 @@
-merge-static-js:
-  node scripts/generate-data.js
-
-gen-static-js-from-json:
+gen-static-js:
   npm run gen:static-js
+
+check-data:
+  npm run check:data

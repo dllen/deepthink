@@ -8,8 +8,8 @@ This project is a hybrid application combining a React + Vite frontend with Pyth
 deepthink/
 ├── src/                    # React frontend source
 │   ├── components/         # React components (ContentCard, TagFilter, WaterfallGrid)
-│   ├── utils/             # Utility functions (sqliteReader.js)
-│   ├── assets/            # Static assets
+│   ├── utils/             # Utility functions (categories.js, formatDate.js, searchUtils.js)
+│   ├── assets/            # Generated static-data.json/.js + reports/links data
 │   ├── App.jsx            # Main application component
 │   └── main.jsx           # Application entry point
 ├── python_scripts/        # Python backend scripts
@@ -18,6 +18,9 @@ deepthink/
 │   │   ├── processors/      # Content processors
 │   │   ├── llm_clients/     # LLM API integrations
 │   │   └── database/        # Database utilities
+│   ├── category_classifier.py  # LLM 七分类
+│   ├── migrate_category.py     # 一次性分类迁移（已完成）
+│   ├── set_category.py         # 人工修正单条分类
 │   ├── main.py             # Main scraping script
 │   ├── clean_db.py         # Database cleanup utility
 │   └── web_content_extractor.py
@@ -37,7 +40,8 @@ deepthink/
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
-| `npm run gen:static-js` | Generate static JS from JSON data |
+| `npm run gen:static-js` | Generate static-data.json + static-data.js from the DB |
+| `npm run check:data` | Verify the DB and generated files are consistent (CI) |
 
 ### Backend Scripts
 
@@ -45,7 +49,7 @@ deepthink/
 # Python dependencies
 pip install -r python_scripts/requirements.txt
 
-# Encrypt database
+# Create encrypted DB copy (optional; CI does not use it)
 ./scripts/encrypt-db.sh
 
 # Run content extractor
@@ -63,7 +67,7 @@ cd python_scripts && python main.py
 
 - Backend tests located in `python_scripts/test_*.py`
 - Run Python tests: `cd python_scripts && python -m pytest test_*.py`
-- No frontend unit tests currently configured
+- Run data pipeline tests: `npm run test:data`
 
 ## Git Workflow
 
@@ -77,7 +81,7 @@ Use conventional commit prefixes:
 - `docs:` — Documentation changes
 - `refactor:` — Code refactoring
 
-Example: `feat: add new article to static data`
+Example: `feat: add a new article to the database`
 
 ### Pull Requests
 
@@ -92,10 +96,12 @@ Copy `.env.example` to `.env` and configure:
 
 - `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` — LLM API keys
 - `OLLAMA_API_URL` — Local Ollama endpoint (defaults to `http://localhost:11434`)
-- `SQLITE_KEY` — Database encryption key
+- `SQLITE_KEY` — Optional; only used by `./scripts/encrypt-db.sh`
 
 ## Database
 
-- SQLite database: `python_scripts/web_content.db`
-- Encrypted copy: `python_scripts/web_content.db.enc`
-- Expected schema: `id`, `title`, `created_time`, `summary`, `original_url`, `tags`
+- SQLite database: `python_scripts/web_content.db` — single source of truth
+- Generated artifacts: `src/assets/static-data.json` + `src/assets/static-data.js` (via `npm run gen:static-js`; do not edit by hand)
+- Encrypted copy: `python_scripts/web_content.db.enc` (optional output of `./scripts/encrypt-db.sh`; not read by the build or CI)
+- `content_summary` columns: `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, `uid`, `content`, `category`, `category_source`
+- `manual_content` is a legacy table written by the old `WebContentExtractor`; it is not part of the site data

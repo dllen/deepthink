@@ -132,8 +132,14 @@ python test_system.py
 - `summary`: Generated summary
 - `original_url`: Source URL
 - `tags`: Comma-separated tags
+- `uid`: Dedupe key (md5)
+- `content`: Full text (when backfilled)
+- `category`: One of the seven categories
+- `category_source`: `llm` / `manual` / `default`
 
-### manual_content Table
+This table is the single source of truth for the site data. The site generator only exports `id`, `title`, `created_time`, `summary`, `original_url`, `tags`, and `category`.
+
+### manual_content Table (legacy)
 
 - `id`: Primary key
 - `title`: Content title
@@ -141,6 +147,8 @@ python test_system.py
 - `created_time`: Creation timestamp
 - `summary`: Generated summary
 - `tags`: Comma-separated tags
+
+This is a legacy table written by the old `WebContentExtractor`. Its rows were imported into `content_summary.content` during the category migration, and it is no longer read by the site data generator.
 
 ## Extending the System
 

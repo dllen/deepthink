@@ -17,8 +17,9 @@ Frontend (Node ≥ 20):
 - `npm run dev` — Vite dev server
 - `npm run build` — production build to `dist/`
 - `npm run lint` — ESLint (flat config, covers `src/` + `scripts/`)
-- `npm run gen:static-js` — regenerate `static-data.js` from `python_scripts/web_content.db` (via sql.js)
-- `npm run gen:static-js:from-json` — regenerate `static-data.js` from `static-data.json`, without the DB
+- `npm run gen:static-js` — 从 `python_scripts/web_content.db` 单向生成 `static-data.json` + `static-data.js`（先校验；失败不写入）
+- `npm run check:data` — 校验 DB、`static-data.json`、`static-data.js` 三者一致（CI 在 build 前执行）
+- `npm run test:data` — 数据规则与生成器的 Node 单元测试
 
 Backend (Python):
 - `pip install -r python_scripts/requirements.txt`
@@ -28,27 +29,27 @@ Backend (Python):
 
 ## Architecture
 
-### Data pipeline (the part that spans files)
+### 数据管线（唯一真源）
 
 ```
-python_scripts/web_content.db ──sql.js──▶ scripts/generate-data.js
-   (SQLite, committed)                     │ reads content_summary
-                                           │ (falls back to manual_content)
-                                           ▼
-                         src/assets/static-data.json  (canonical, committed)
-                         src/assets/static-data.js    (generated `export default`)
-                                           │
-                                           ▼
-                         src/App.jsx imports static-data.js
+python_scripts/web_content.db ──scripts/generate-data.js──▶ src/assets/static-data.json
+   (SQLite, 唯一真源)                     │                 src/assets/static-data.js
+                                          │
+                                          ▼
+                                  src/App.jsx imports static-data.js
 ```
 
-- `scripts/generate-data.js` reads the committed SQLite with sql.js, does an **incremental merge** keyed on `original_url` (fallback `title+created_time`), then writes timestamped snapshots + `static-data.json` + `static-data.js`.
-- CI does **not** regenerate data — it deploys the committed `static-data.js`/`.json` directly (`deploy.yml`; in-CI regeneration was intentionally removed).
+- DB 是唯一真源；两个数据文件都是生成物，**禁止手工编辑**。
+- `category` 是 DB 的列（七类之一），抓取入库时由 `category_classifier.py` 自动分类，可用 `set_category.py` 人工修正。
+- 更新内容：改 DB → `npm run gen:static-js` → 提交 → 推送自动部署。
+- `npm run check:data` 校验 DB 与生成物一致，CI 在 build 前执行。
+- 生成器只读 `content_summary`（导出 `id/title/created_time/summary/original_url/tags/category`），按 `created_time DESC, id DESC` 排序，一次性重写两个生成物；不做增量合并，也不产生快照。
+- CI 不重新生成数据：`deploy.yml` 直接部署提交的 `static-data.js`/`.json`；`test:data` + `check:data` 在 build 前执行。
 
 ### Frontend
 
 - `src/App.jsx` owns all state: `items`, category (single-select), tags (multi-select), search (Fuse.js). Filtering is entirely client-side in `filterData()`.
-- `src/utils/categories.js` — the 7 mutually-exclusive categories (阮一峰《科技爱好者周刊》 structure): 科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论. Items lacking `category` render as `文章`.
+- `src/utils/categories.js` — the 7 mutually-exclusive categories (阮一峰《科技爱好者周刊》 structure): 科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论. Category filtering is strict equality; `ContentCard` falls back to the 文章 badge only for rows lacking `category`.
 - Components: `SearchBar`, `CategoryFilter`, `TagFilter`, `WaterfallGrid` → `ContentCard`, `ReportsPanel` → `ReportModal`.
 - Reports are standalone static HTML pages under `public/`, listed in `src/assets/static-reports.js` — they are **not** part of the SQLite data.
 
@@ -61,12 +62,12 @@ Modular packages orchestrated by `extractor.py` / `main.py`:
 - `database/db_manager.py` — SQLite access
 - `config.py` — dataclass config from env (python-dotenv)
 
-Two tables: `content_summary` (id, title, created_time, summary, original_url, tags) and `manual_content` (adds full `content`). `grab_params.json` drives batch scraping.
+`content_summary` 是站点数据的唯一来源表：`id, title, created_time, summary, original_url, tags, uid, content, category, category_source`。生成器只导出其中的 `id, title, created_time, summary, original_url, tags, category`。`manual_content` 是旧版表（旧 `WebContentExtractor` 仍会写入），不进入站点数据。`grab_params.json` 驱动 `fetch_from_params.py` 批量抓取。
 
 ## Gotchas
 
 - **No `package-lock.json`** (intentionally gitignored). CI runs `npm install --legacy-peer-deps`, not `npm ci` — the old lockfile pinned an internal npm registry unreachable from GH runners. Don't re-add it.
-- **DB files are committed despite `*.db` in `.gitignore`** (`web_content.db` + `.web_content.db.enc`) — the deploy pipeline relies on them. The `.env` holding `SQLITE_KEY` is not committed.
-- **`static-data-<timestamp>.json` snapshots are gitignored**; only `static-data.json` + `static-data.js` are tracked artifacts. Clean up snapshots rather than committing them.
-- **`category` is not in the original DB schema** — it is assigned during extraction/backfill, so it appears in `static-data.js` but not in `content_summary`'s documented columns.
+- **DB files are committed despite `*.db` in `.gitignore`** (`web_content.db` + `web_content.db.enc`) — CI's `check:data` reads the plaintext DB. The `.env` holding `SQLITE_KEY` is not committed.
+- **Generated data files must be committed**: CI does not run `gen:static-js`; it deploys the committed `static-data.json` / `static-data.js`, and `check:data` fails if they diverge from the DB.
+- **Never hand-edit `static-data.json` / `static-data.js`** — the DB is the single source of truth. Change the DB, then run `npm run gen:static-js`. Fix a category with `python_scripts/set_category.py`.
 - Deploy is automatic on push to `main` → GitHub Pages (`gh-pages` branch).

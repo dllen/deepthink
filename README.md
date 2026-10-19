@@ -1,31 +1,30 @@
-# SQLite Waterfall Content Viewer
+# 观念棱镜（DeepThink）
 
-一个使用 React + TailwindCSS 构建的静态网站，用于离线读取 SQLite 数据并生成瀑布流内容展示，支持按标签筛选。
+一个使用 React + Vite + TailwindCSS 构建的静态内容瀑布流站点。内容由 Python 后端抓取、摘要、分类后写入 SQLite；构建前把 DB 导出为静态数据模块，站点运行时不需要服务器或数据库。
 
 ## 功能特点
 
 - ✅ 瀑布流布局展示内容摘要
+- ✅ 按七分类筛选：科技动态 / 文章 / 工具 / 资源 / 图片 / 文摘 / 言论
 - ✅ 按标签筛选内容
+- ✅ 基于 Fuse.js 的标题/摘要搜索
+- ✅ 分析报告与信息源头栏目
+- ✅ 信息检索视图（跨源搜索入口）
 - ✅ 响应式设计，支持 PC 和移动端访问
-- ✅ 简洁明朗的界面风格
-- ✅ 内容卡片包含标题、时间、摘要、原文链接和标签
 
 ## 项目结构
 
 ```
-public/
-├── A股行业财政乘数矩阵看板.html  # 独立静态看板页面
+public/                     # 独立静态页面
 src/
-├── components/
-│   ├── ContentCard.jsx      # 内容卡片组件
-│   ├── TagFilter.jsx        # 标签筛选组件
-│   └── WaterfallGrid.jsx    # 瀑布流网格组件
-├── utils/
-│   └── sqliteReader.js      # SQLite读取工具
-├── App.jsx                  # 主应用组件
-├── main.jsx                 # 应用入口
-├── index.css               # 全局样式
+├── components/             # 内容卡片、筛选器、瀑布流、报告/信息源等组件
+├── utils/                  # categories.js、formatDate.js、searchUtils.js
+├── assets/                 # static-data.json/.js（生成物）、报告/链接/信息源数据
+├── App.jsx                 # 主应用组件
+├── main.jsx                # 应用入口
 └── App.css                 # 应用样式
+python_scripts/             # 抓取、摘要、分类并写入 SQLite
+scripts/                    # generate-data.js、check-data.mjs、加密脚本
 ```
 
 ## 技术栈
@@ -37,62 +36,58 @@ src/
 
 ## 安装和运行
 
-1. 安装依赖：
+要求 Node.js ≥ 20.0.0。
+
 ```bash
-npm install
-# 或
-yarn install
+npm install     # 安装依赖
+npm run dev     # 启动开发服务器
+npm run build   # 构建生产版本
+npm run preview # 预览生产构建
+npm run lint    # ESLint
 ```
 
-2. 启动开发服务器：
+仓库不跟踪 `package-lock.json`，CI 使用 `npm install --legacy-peer-deps`。
+
+## 数据从哪来
+
+- 真源：`python_scripts/web_content.db`（SQLite）
+- 生成：`npm run gen:static-js` 把 DB 导出为 `src/assets/static-data.json` 与 `src/assets/static-data.js`
+- 校验：`npm run check:data` 确认生成物与 DB 一致
+- 两个数据文件都是生成物，不要手工编辑；改内容请改 DB，或用 `python_scripts/set_category.py` 修正分类
+- `category` 是 DB 的列（七类之一），抓取入库时由 `python_scripts/category_classifier.py` 自动分类
+- 生成器只读 `content_summary`，一次性重写两个生成物；不做增量合并，也不产生快照
+
+## 每周更新内容
+
+1. 抓取：`cd python_scripts && python3 fetch_from_params.py` 或 `python3 crawler_subpages.py`
+2. 生成：`npm run gen:static-js`
+3. 校验（可选）：`npm run check:data`
+4. 本地预览：`npm run dev`
+5. 提交并推送：`git add -A && git commit -m "chore(content): ..." && git push`
+6. 推送后 GitHub Actions 自动部署到 GitHub Pages
+
+需要人工修正某条内容的分类时：
+
 ```bash
-npm run dev
-# 或
-yarn dev
+cd python_scripts
+python3 set_category.py --url <原文链接> <七类之一>
+# 或用 --id <行 id> 定位
 ```
 
-3. 构建生产版本：
-```bash
-npm run build
-# 或
-yarn build
-```
+## 构建与部署
 
-## SQLite 数据读取
-
-本项目设计用于读取包含以下字段的 SQLite 数据库：
-
-- `id`: 内容唯一标识
-- `title`: 标题
-- `created_time`: 创建时间
-- `summary`: 摘要内容
-- `original_url`: 原文链接
-- `tags`: 标签（逗号分隔）
-
-在浏览器环境中，实际的 SQLite 文件读取需要使用 [sql.js](https://github.com/sql-js/sql.js) 库。当前实现使用模拟数据，实际部署时需要替换为真实的 SQLite 读取逻辑。
-
-## 响应式设计
-
-- 移动端：单列瀑布流
-- 平板端：双列瀑布流
-- 桌面端：三到四列瀑布流
+- `npm run build` 生成 `dist/`。
+- CI（`.github/workflows/deploy.yml`）在 build 前执行 `npm run test:data` 与 `npm run check:data`。
+- CI **不重新生成数据**，直接部署提交的 `static-data.json` / `static-data.js`；更新内容后必须提交这两个生成物。
+- 推送到 `main` 后自动部署到 `gh-pages` 分支。
 
 ## 使用说明
 
-1. 启动应用后，系统会自动加载 SQLite 数据
-2. 使用顶部标签筛选器筛选内容
-3. 点击标签按钮可添加/移除筛选条件
+1. 启动应用后，页面加载构建时打包的静态内容
+2. 使用顶部分类或标签筛选器筛选内容
+3. 使用搜索框按标题、摘要搜索
 4. 点击"查看原文"可跳转到原始链接
-5. 悬停在卡片上可查看悬停效果
-6. 点击顶部导航的"A股矩阵看板"可进入 A股行业财政乘数矩阵看板页面
-
-## 自定义
-
-如需集成真实的 SQLite 文件读取功能，可以：
-
-1. 安装 sql.js: `npm install sql.js`
-2. 在 `src/utils/sqliteReader.js` 中实现真实的 SQLite 读取逻辑
-3. 添加文件上传功能供用户上传 SQLite 文件
+5. 通过顶部"信息检索"切换到跨源搜索视图
 
 ## 浏览器兼容性
 
@@ -104,13 +99,3 @@ yarn build
 ## 许可证
 
 MIT
-
-## GitHub Pages 部署
-
-此项目已配置了GitHub Actions工作流，可自动部署到GitHub Pages。当您推送到main分支时，工作流将自动运行：
-
-1. 安装Node.js依赖
-2. 构建项目
-3. 将构建结果部署到`gh-pages`分支
-
-部署的工作流配置位于 `.github/workflows/deploy.yml`。
