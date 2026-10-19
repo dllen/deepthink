@@ -1,6 +1,6 @@
 
 import Fuse from 'fuse.js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import SearchBar from './components/SearchBar';
 import TagFilter from './components/TagFilter';
@@ -22,16 +22,27 @@ function readViewFromHash() {
 }
 
 const App = () => {
-  const [items, setItems] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
-  const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [categoryCounts, setCategoryCounts] = useState({});
   const [currentView, setCurrentView] = useState(readViewFromHash);
   const [searchPageQuery, setSearchPageQuery] = useState('');
+
+  // 标签与分类计数从静态数据一次性派生
+  const { tags, categoryCounts } = useMemo(() => {
+    const tagSet = new Set();
+    const counts = {};
+    for (const item of data) {
+      if (item.tags) {
+        for (const tag of item.tags.split(',')) {
+          const trimmed = tag.trim();
+          if (trimmed) tagSet.add(trimmed);
+        }
+      }
+      if (item.category) counts[item.category] = (counts[item.category] || 0) + 1;
+    }
+    return { tags: Array.from(tagSet), categoryCounts: counts };
+  }, []);
 
   useEffect(() => {
     const syncFromHash = () => setCurrentView(readViewFromHash());
@@ -42,62 +53,39 @@ const App = () => {
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
 
-  useEffect(() => {
-    const allTags = new Set();
-    data.forEach((item) => {
-      if (!item.tags) return;
-      item.tags.split(',').forEach((t) => {
-        const trimmed = t.trim();
-        if (trimmed) allTags.add(trimmed);
-      });
-    });
-    const counts = {};
-    data.forEach((item) => {
-      if (item.category) counts[item.category] = (counts[item.category] || 0) + 1;
-    });
-    setItems(data);
-    setFilteredData(data);
-    setTags(Array.from(allTags));
-    setCategoryCounts(counts);
-    setIsLoading(false);
-  }, []);
+  const fuse = useMemo(
+    () =>
+      new Fuse(data, {
+        keys: ['title', 'summary'],
+        threshold: 0.35,
+        ignoreLocation: true,
+        useExtendedSearch: true,
+      }),
+    []
+  );
 
-  const fuse = useMemo(() => {
-    return new Fuse(items, {
-      keys: ['title', 'summary'],
-      threshold: 0.35,
-      ignoreLocation: true,
-      useExtendedSearch: true,
-    });
-  }, [items]);
-
-  const filterData = useCallback(() => {
-    let result = items;
+  // 派生筛选结果，不再写入 state
+  const filteredData = useMemo(() => {
+    let result = data;
 
     if (selectedCategory) {
       result = result.filter(item => item.category === selectedCategory);
     }
 
     if (searchQuery.trim()) {
-      const searchResults = fuse.search(searchQuery);
-      const idSet = new Set(searchResults.map(r => r.item.id));
+      const idSet = new Set(fuse.search(searchQuery).map(r => r.item.id));
       result = result.filter(item => idSet.has(item.id));
     }
 
     if (selectedTags.length > 0) {
       result = result.filter(item => {
-        const itemTags = item.tags.split(',').map(tag => tag.trim());
+        const itemTags = (item.tags || '').split(',').map(tag => tag.trim());
         return selectedTags.some(tag => itemTags.includes(tag));
       });
     }
 
-    setFilteredData(result);
-  }, [items, searchQuery, selectedTags, selectedCategory, fuse]);
-
-  // Re-filter when search query, tags, or category change
-  useEffect(() => {
-    filterData();
-  }, [filterData, searchQuery, selectedTags, selectedCategory, items]);
+    return result;
+  }, [fuse, searchQuery, selectedCategory, selectedTags]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
@@ -111,6 +99,13 @@ const App = () => {
   // 清除所有标签筛选
   const clearFilters = () => {
     setSelectedTags([]);
+  };
+
+  // 清除全部筛选（标签 + 分类 + 搜索词）
+  const clearAllFilters = () => {
+    setSelectedTags([]);
+    setSelectedCategory(null);
+    setSearchQuery('');
   };
 
   // Search handlers
@@ -212,18 +207,11 @@ const App = () => {
             </div>
 
             {/* 瀑布流内容 */}
-            {isLoading ? (
-              <div className="flex flex-col justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-100 border-t-indigo-500"></div>
-                <p className="mt-4 text-indigo-400 font-medium animate-pulse">正在加载精彩内容...</p>
-              </div>
-            ) : (
-              <div className="transition-opacity duration-500 ease-in-out">
-                <WaterfallGrid data={filteredData} />
-              </div>
-            )}
+            <div className="transition-opacity duration-500 ease-in-out">
+              <WaterfallGrid data={filteredData} />
+            </div>
 
-            {filteredData.length === 0 && !isLoading && (
+            {filteredData.length === 0 && (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-indigo-200 shadow-sm mx-auto max-w-2xl">
                 <div className="mx-auto h-24 w-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-indigo-400">
@@ -235,7 +223,7 @@ const App = () => {
                   尝试选择不同的分类或标签，或者清除当前的筛选条件重新开始
                 </p>
                 <button
-                  onClick={clearFilters}
+                  onClick={clearAllFilters}
                   className="mt-8 px-6 py-2.5 bg-indigo-500 text-white rounded-full font-medium shadow-lg shadow-indigo-200 hover:bg-indigo-600 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                   清除所有筛选
