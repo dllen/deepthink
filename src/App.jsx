@@ -45,11 +45,16 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const syncFromHash = () => setCurrentView(readViewFromHash());
+    // 监听 hashchange；非法 hash 归一为规范路径，用 replaceState 不新增历史条目
+    const syncFromHash = () => {
+      const view = readViewFromHash();
+      setCurrentView(view);
+      if (window.location.hash !== VIEW_HASH[view]) {
+        window.history.replaceState(null, '', VIEW_HASH[view]);
+      }
+    };
     window.addEventListener('hashchange', syncFromHash);
-    if (window.location.hash !== VIEW_HASH[readViewFromHash()]) {
-      window.history.replaceState(null, '', VIEW_HASH[readViewFromHash()]);
-    }
+    syncFromHash();
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
 
@@ -85,7 +90,9 @@ const App = () => {
     }
 
     return result;
-  }, [fuse, searchQuery, selectedCategory, selectedTags]);
+    // data 是模块级静态数据，显式列入依赖以表达派生来源
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, fuse, searchQuery, selectedCategory, selectedTags]);
 
   // 切换标签选择状态
   const toggleTag = (tag) => {
@@ -94,6 +101,11 @@ const App = () => {
     } else {
       setSelectedTags([...selectedTags, tag]);
     }
+  };
+
+  // 清除所有标签筛选（保留分类与搜索词）
+  const clearTagFilters = () => {
+    setSelectedTags([]);
   };
 
   // 清除全部筛选（标签 + 分类 + 搜索词）
@@ -195,7 +207,7 @@ const App = () => {
                 tags={tags}
                 selectedTags={selectedTags}
                 onTagToggle={toggleTag}
-                onClearFilters={clearAllFilters}
+                onClearFilters={clearTagFilters}
               />
             </div>
 
