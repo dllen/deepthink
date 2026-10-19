@@ -27,9 +27,19 @@ jobs:
       run: npm install --legacy-peer-deps
 
     # Build/deploy does not regenerate data: it uses the committed
-    # static-data.js/json directly. `check:data` below reads the plaintext
-    # DB with sql.js and verifies the generated files are consistent with it;
-    # no database decryption step is involved.
+    # static-data.js/json directly. The plaintext DB is NOT tracked in git;
+    # the `Decrypt database` step below restores it from web_content.db.enc
+    # with the SQLITE_KEY secret so `check:data` can verify it with sql.js.
+
+    - name: Decrypt database
+      env:
+        SQLITE_KEY: ${{ secrets.SQLITE_KEY }}
+      run: |
+        if [ -z "$SQLITE_KEY" ]; then
+          echo "::error::SQLITE_KEY secret is not set"
+          exit 1
+        fi
+        ./scripts/decrypt-db.sh
 
     - name: Run data rule tests
       run: npm run test:data
