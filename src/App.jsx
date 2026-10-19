@@ -96,11 +96,6 @@ const App = () => {
     }
   };
 
-  // 清除所有标签筛选
-  const clearFilters = () => {
-    setSelectedTags([]);
-  };
-
   // 清除全部筛选（标签 + 分类 + 搜索词）
   const clearAllFilters = () => {
     setSelectedTags([]);
@@ -187,22 +182,20 @@ const App = () => {
               />
             </div>
 
-            {/* 分类筛选器（七大类单选） */}
-            <div className="mb-4 sticky top-24 z-40">
-              <CategoryFilter
-                selectedCategory={selectedCategory}
-                onCategorySelect={setSelectedCategory}
-                counts={categoryCounts}
-              />
-            </div>
-
-            {/* 标签筛选器（次级，多选） */}
-            <div className="mb-8 sticky top-24 z-40">
+            {/* 筛选区：分类（七大类单选）+ 标签（次级多选）合并为一个 sticky 容器 */}
+            <div className="mb-8 sticky top-20 z-40 max-md:static bg-slate-50/95 backdrop-blur-sm rounded-2xl">
+              <div className="mb-3">
+                <CategoryFilter
+                  selectedCategory={selectedCategory}
+                  onCategorySelect={setSelectedCategory}
+                  counts={categoryCounts}
+                />
+              </div>
               <TagFilter
                 tags={tags}
                 selectedTags={selectedTags}
                 onTagToggle={toggleTag}
-                onClearFilters={clearFilters}
+                onClearFilters={clearAllFilters}
               />
             </div>
 
