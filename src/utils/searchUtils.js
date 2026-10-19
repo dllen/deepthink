@@ -13,15 +13,10 @@ export const buildSearchUrl = (query, urlTemplate) => {
 /**
  * 批量构建所有信息源的搜索 URL
  * @param {string} query - 搜索关键词
- * @param {string[]} sourceIds - 要搜索的信息源 ID 列表，null 表示全部
  * @returns {Object} { sourceId: url } 映射
  */
-export const buildAllSearchUrls = (query, sourceIds = null) => {
-  const sources = sourceIds
-    ? last30daysSources.filter(s => sourceIds.includes(s.id))
-    : last30daysSources;
-
-  return sources.reduce((acc, source) => {
+export const buildAllSearchUrls = (query) => {
+  return last30daysSources.reduce((acc, source) => {
     acc[source.id] = buildSearchUrl(query, source.url);
     return acc;
   }, {});
