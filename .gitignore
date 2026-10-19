@@ -92,10 +92,7 @@ venv/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# npm lockfile — intentionally not tracked. CI resolves deps from
-# the public registry via `npm install` (no `npm ci`). Re-adding
-# package-lock.json would re-pin internal registry URLs that GH
-# runners cannot reach.
-package-lock.json
+# package-lock.json is committed for reproducible builds (resolved from
+# https://registry.npmjs.org/; do not generate it behind an internal registry).
 
 .superpowers/
